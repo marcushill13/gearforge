@@ -8,12 +8,12 @@ replacing them — GearForge is about combat gear, not bank organisation.
 
 ## Current state
 
-Three of the four planned surfaces work today:
+All four surfaces work today:
 
 - **Setups** — save a loadout from what you're wearing or straight from the BiS tab, then **Show in
   bank** to filter your bank down to just that setup's items, the way a Bank Tags tab works. Each
   setup shows how many of its items you actually own and which slots are missing.
-- **Slots** — pick an equipment slot and a bonus, get everything you own ranked best-first, with the
+- **Search** — pick an equipment slot and a bonus, get everything you own ranked best-first, with the
   item's icon, where it currently is (bank / inventory / worn), the value, and how it compares to
   what you are wearing right now.
 - **BiS** — the best setup from your own bank for a combat style or a defensive profile, with the DPS
@@ -27,7 +27,7 @@ Bank contents are snapshotted when you open your bank, stored **per RuneScape ac
 with an honest age ("Bank data from 2 hours ago"). Variant families (charged, imbued, degraded)
 collapse to a single entry showing the best version.
 
-### 
+### Bank filtering
 
 Bank filtering goes through RuneLite's own **Bank Tags** plugin, which must be enabled (it is by
 default). GearForge registers a private virtual tag rather than writing to your own tags.
@@ -89,6 +89,7 @@ Regenerate either dataset with:
 ```
 node scripts/generate-requirements.mjs
 node scripts/generate-monsters.mjs
+node scripts/generate-item-categories.mjs
 ```
 
 ## Licence
