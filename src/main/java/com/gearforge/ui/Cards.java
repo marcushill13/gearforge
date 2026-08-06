@@ -1,0 +1,297 @@
+package com.gearforge.ui;
+
+import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.Component;
+import java.awt.Dimension;
+import java.awt.Font;
+import java.awt.GridLayout;
+import java.util.function.IntConsumer;
+import javax.swing.BorderFactory;
+import javax.swing.Box;
+import javax.swing.BoxLayout;
+import javax.swing.ButtonGroup;
+import javax.swing.DefaultListCellRenderer;
+import javax.swing.JButton;
+import javax.swing.JComboBox;
+import javax.swing.JComponent;
+import javax.swing.JLabel;
+import javax.swing.JList;
+import javax.swing.JPanel;
+import javax.swing.JToggleButton;
+import net.runelite.client.ui.ColorScheme;
+import net.runelite.client.ui.FontManager;
+
+/**
+ * Shared building blocks so the two tabs look like one plugin rather than two.
+ */
+final class Cards
+{
+	/** Left accent strip width on a card, in pixels. */
+	private static final int ACCENT = 3;
+
+	/** Red rather than the brand orange, so a warning does not read as ordinary highlighting. */
+	private static final Color WARNING_COLOR = new Color(220, 90, 70);
+
+	private Cards()
+	{
+	}
+
+	/**
+	 * A padded block with a subtle darker background — the unit the panel is composed from.
+	 */
+	static JPanel card()
+	{
+		JPanel card = new JPanel();
+		card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
+		card.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+		card.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
+		card.setAlignmentX(Component.LEFT_ALIGNMENT);
+		return card;
+	}
+
+	/**
+	 * A card with a coloured strip down the left, used for the headline result.
+	 */
+	static JPanel accentCard(Color accent)
+	{
+		JPanel wrapper = new JPanel(new BorderLayout());
+		wrapper.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+		wrapper.setBorder(BorderFactory.createMatteBorder(0, ACCENT, 0, 0, accent));
+		wrapper.setAlignmentX(Component.LEFT_ALIGNMENT);
+		return wrapper;
+	}
+
+	/**
+	 * Section label — small, uppercase, muted. Used to break the panel into scannable groups.
+	 */
+	static JLabel sectionLabel(String text)
+	{
+		JLabel label = new JLabel(text.toUpperCase());
+		label.setFont(FontManager.getRunescapeSmallFont());
+		label.setForeground(ColorScheme.MEDIUM_GRAY_COLOR);
+		label.setAlignmentX(Component.LEFT_ALIGNMENT);
+		label.setBorder(BorderFactory.createEmptyBorder(0, 0, 4, 0));
+		return label;
+	}
+
+	/**
+	 * The one number that matters, rendered large.
+	 */
+	static JLabel headline(String text)
+	{
+		JLabel label = new JLabel(text);
+		label.setFont(FontManager.getRunescapeBoldFont().deriveFont(Font.BOLD, 16f));
+		label.setForeground(ColorScheme.BRAND_ORANGE);
+		label.setAlignmentX(Component.LEFT_ALIGNMENT);
+		return label;
+	}
+
+	/**
+	 * A setup or section title — larger than body text so a list of setups scans by name.
+	 */
+	static JLabel title(String text)
+	{
+		JLabel label = new JLabel(text);
+		label.setFont(FontManager.getRunescapeBoldFont().deriveFont(Font.BOLD, 13f));
+		label.setForeground(ColorScheme.LIGHT_GRAY_COLOR);
+		label.setAlignmentX(Component.LEFT_ALIGNMENT);
+		return label;
+	}
+
+	/**
+	 * A prominent warning block — a coloured strip and bold text, for things the player needs to act
+	 * on rather than merely notice.
+	 */
+	static JPanel warning(String text)
+	{
+		JPanel inner = new JPanel();
+		inner.setLayout(new BoxLayout(inner, BoxLayout.Y_AXIS));
+		inner.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+		inner.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
+
+		JLabel label = new JLabel("<html><body style='width:140px'>" + escape(text) + "</body></html>");
+		label.setFont(FontManager.getRunescapeBoldFont());
+		label.setForeground(WARNING_COLOR);
+		label.setAlignmentX(Component.LEFT_ALIGNMENT);
+		inner.add(label);
+
+		JPanel card = new JPanel(new BorderLayout());
+		card.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+		card.setBorder(BorderFactory.createMatteBorder(0, ACCENT, 0, 0, WARNING_COLOR));
+		card.setAlignmentX(Component.LEFT_ALIGNMENT);
+		card.add(inner, BorderLayout.CENTER);
+		card.setMaximumSize(new Dimension(Integer.MAX_VALUE, card.getPreferredSize().height));
+		return card;
+	}
+
+	static JLabel body(String text)
+	{
+		JLabel label = new JLabel(text);
+		label.setFont(FontManager.getRunescapeSmallFont());
+		label.setForeground(ColorScheme.LIGHT_GRAY_COLOR);
+		label.setAlignmentX(Component.LEFT_ALIGNMENT);
+		return label;
+	}
+
+	/**
+	 * Muted, wrapped text for reasons and caveats.
+	 */
+	static JLabel muted(String text)
+	{
+		JLabel label = new JLabel("<html><body style='width:145px'>" + escape(text) + "</body></html>");
+		label.setFont(FontManager.getRunescapeSmallFont());
+		label.setForeground(ColorScheme.MEDIUM_GRAY_COLOR);
+		label.setAlignmentX(Component.LEFT_ALIGNMENT);
+		return label;
+	}
+
+	/**
+	 * A labelled form field stacked vertically, which reads better than side-by-side at this width.
+	 */
+	static JPanel field(String label, JComponent input)
+	{
+		JPanel panel = new JPanel();
+		panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+		panel.setBackground(ColorScheme.DARK_GRAY_COLOR);
+		panel.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+		JLabel caption = sectionLabel(label);
+		panel.add(caption);
+
+		input.setAlignmentX(Component.LEFT_ALIGNMENT);
+		input.setMaximumSize(new Dimension(Integer.MAX_VALUE, input.getPreferredSize().height));
+		panel.add(input);
+
+		return panel;
+	}
+
+	/**
+	 * A vertical spacer that is left-aligned like everything else.
+	 * <p>
+	 * {@link Box#createVerticalStrut} defaults to centre alignment, and a Y_AXIS BoxLayout containing
+	 * a mix of alignments indents its children instead of filling the panel — which is what made the
+	 * whole sidebar look squashed toward one side.
+	 */
+	static Component gap(int height)
+	{
+		Component strut = Box.createVerticalStrut(height);
+		((JComponent) strut).setAlignmentX(Component.LEFT_ALIGNMENT);
+		return strut;
+	}
+
+	/**
+	 * A compact button that matches the sidebar rather than the platform look-and-feel.
+	 */
+	static JButton button(String text)
+	{
+		JButton button = new JButton(text);
+		button.setFont(FontManager.getRunescapeSmallFont());
+		button.setForeground(ColorScheme.LIGHT_GRAY_COLOR);
+		button.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+		// Tight horizontal padding: at 225px, three buttons in a row have barely 60px each, and
+		// generous padding is what truncated "Off task" into "Off...".
+		button.setBorder(BorderFactory.createEmptyBorder(4, 3, 4, 3));
+		button.setFocusPainted(false);
+		button.setAlignmentX(Component.LEFT_ALIGNMENT);
+		return button;
+	}
+
+	/**
+	 * A dropdown styled to match the sidebar. The default Swing combo renders light-on-light here and
+	 * stands out badly against RuneLite's dark panels.
+	 */
+	static <T> JComboBox<T> comboBox(T[] items)
+	{
+		JComboBox<T> combo = new JComboBox<>(items);
+		combo.setFont(FontManager.getRunescapeSmallFont());
+		combo.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+		combo.setForeground(ColorScheme.LIGHT_GRAY_COLOR);
+		combo.setFocusable(false);
+		combo.setBorder(BorderFactory.createEmptyBorder(2, 4, 2, 4));
+		combo.setRenderer(new DarkListRenderer());
+		combo.setAlignmentX(Component.LEFT_ALIGNMENT);
+		// Without a maximum, BoxLayout leaves the combo at its preferred width instead of filling.
+		combo.setMaximumSize(new Dimension(Integer.MAX_VALUE, combo.getPreferredSize().height));
+		return combo;
+	}
+
+	/**
+	 * Two or more mutually exclusive options as side-by-side buttons — clearer than a dropdown when
+	 * there are only a couple of choices, and it shows the alternative without a click.
+	 */
+	static JPanel segmented(String[] labels, int selectedIndex, IntConsumer onSelect)
+	{
+		JPanel row = new JPanel(new GridLayout(1, labels.length, 4, 0));
+		row.setBackground(ColorScheme.DARK_GRAY_COLOR);
+		row.setAlignmentX(Component.LEFT_ALIGNMENT);
+		row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 26));
+
+		ButtonGroup group = new ButtonGroup();
+
+		for (int i = 0; i < labels.length; i++)
+		{
+			final int index = i;
+			JToggleButton option = new JToggleButton(labels[i]);
+			option.setFont(FontManager.getRunescapeSmallFont());
+			option.setFocusPainted(false);
+			option.setBorder(BorderFactory.createEmptyBorder(4, 2, 4, 2));
+			option.setSelected(i == selectedIndex);
+			paintToggle(option);
+
+			option.addItemListener(event ->
+			{
+				paintToggle(option);
+				if (option.isSelected())
+				{
+					onSelect.accept(index);
+				}
+			});
+
+			group.add(option);
+			row.add(option);
+		}
+
+		return row;
+	}
+
+	private static void paintToggle(JToggleButton option)
+	{
+		option.setBackground(option.isSelected()
+			? ColorScheme.BRAND_ORANGE
+			: ColorScheme.DARKER_GRAY_COLOR);
+		option.setForeground(option.isSelected()
+			? ColorScheme.DARKER_GRAY_COLOR
+			: ColorScheme.LIGHT_GRAY_COLOR);
+	}
+
+	/**
+	 * Keeps the dropdown popup dark instead of the default white list.
+	 */
+	private static final class DarkListRenderer extends DefaultListCellRenderer
+	{
+		@Override
+		public Component getListCellRendererComponent(
+			JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus)
+		{
+			super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+
+			setFont(FontManager.getRunescapeSmallFont());
+			setBackground(isSelected ? ColorScheme.BRAND_ORANGE : ColorScheme.DARKER_GRAY_COLOR);
+			setForeground(isSelected ? ColorScheme.DARKER_GRAY_COLOR : ColorScheme.LIGHT_GRAY_COLOR);
+			setBorder(BorderFactory.createEmptyBorder(3, 5, 3, 5));
+			return this;
+		}
+	}
+
+	/**
+	 * Item names come from the game and can contain characters that would break the HTML wrapper.
+	 */
+	static String escape(String text)
+	{
+		return text
+			.replace("&", "&amp;")
+			.replace("<", "&lt;")
+			.replace(">", "&gt;");
+	}
+}
