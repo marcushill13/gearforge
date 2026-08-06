@@ -27,34 +27,15 @@ Bank contents are snapshotted when you open your bank, stored **per RuneScape ac
 with an honest age ("Bank data from 2 hours ago"). Variant families (charged, imbued, degraded)
 collapse to a single entry showing the best version.
 
-### Known limitations
-
-- **Requirement data is incomplete.** RuneLite's item data has no level requirements and the OSRS
-  Wiki only states them in prose, so they ship as a generated resource sourced from osrsbox-db.
-  That dataset is no longer updated, so items released after it stopped are absent — around 1,800 of
-  3,900 equipable items are covered. Missing items are treated as *unknown* rather than
-  *unrestricted*: they still appear in **Gear I can use**, with a note saying they could not be
-  checked. Regenerate with `node scripts/generate-requirements.mjs`.
-- **Quest requirements are not checked at all** (e.g. Barrows gloves).
-- **Set effect coverage is partial.** Void, salve amulet, and slayer helmet / black mask are
-  implemented from verified multipliers. Twisted bow, Dharok's, dragon hunter weapons, Inquisitor's,
-  scythe, keris and the obsidian sets are not modelled yet, and setups relying on them will score low.
-- **Magic BiS assumes Ice Barrage** against a dummy target. Spell selection is not built.
-- Ammo is not yet co-optimised with the weapon, so bow/arrow pairings are not enforced.
-- **Setups cover equipment only.** No inventory grid, rune pouch or quiver yet, so no import from
-  Inventory Setups and no share codes.
-- **Charges and doses are not checked.** Unknown charge levels read as neutral rather than as a
-  warning, so a setup will not tell you a weapon is out of charges.
-
-Planned: the setup editor, Inventory Setups import, upgrade nudges, and the per-boss tab.
+### 
 
 Bank filtering goes through RuneLite's own **Bank Tags** plugin, which must be enabled (it is by
 default). GearForge registers a private virtual tag rather than writing to your own tags.
 
-**Known conflict:** the third-party **Bank Tag Layouts** plugin generates its own layout for every
+**Known conflict:** the third-party **Bank Tag Layouts** plugin used with "Inventory Setups" plugin generates its own layout for every
 tag, including GearForge's, which overrides the equipment-doll arrangement and packs items into a
 flat row instead. If your filtered bank is not laid out as an equipment screen, that is why — disable
-Bank Tag Layouts, or delete its `banktaglayouts.layout_gearforge` entry.
+Bank Tag Layouts.
 
 Note for anyone extending this: every RuneLite plugin gets its own Guice child injector, so
 `BankTagsService` and `LayoutManager` are **not** injectable from another plugin — attempting it makes
@@ -62,26 +43,10 @@ Guice fail to construct the plugin, which removes it from the plugin list with n
 are reached instead through the running plugin's own injector, found via `PluginManager` and
 `Plugin.getInjector()`.
 
-## No automation
-
-GearForge never withdraws, deposits, equips or clicks anything. It reads game state, computes, and
-displays. Every action it enables is one you perform yourself.
-
 ## Getting started
 
 Install, then open your bank once. That's the whole setup.
 
-## Building
-
-```
-./gradlew build
-```
-
-To run a development client with the plugin loaded:
-
-```
-./gradlew run
-```
 
 See [Using Jagex Accounts](https://github.com/runelite/runelite/wiki/Using-Jagex-Accounts) for logging
 into a development client.
