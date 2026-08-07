@@ -138,7 +138,9 @@ public class UpgradeFinder
 				continue;
 			}
 
-			if (slot == EquipmentSlot.WEAPON && !Constraints.isUsableWeapon(candidate))
+			if (slot == EquipmentSlot.WEAPON
+				&& (!Constraints.isUsableWeapon(candidate)
+				|| !itemCategories.suitsStyle(candidate.getItemId(), style.name())))
 			{
 				continue;
 			}

@@ -263,6 +263,23 @@ public class DpsOptimizer
 
 			if (entry.getKey() == EquipmentSlot.WEAPON)
 			{
+				// A weapon has to match the style. Otherwise, with no bow owned, a longsword wins the
+				// ranged slot simply by being the least bad of the wrong options.
+				List<GearItem> suitable = new ArrayList<>();
+				for (GearItem item : items)
+				{
+					if (Constraints.isUsableWeapon(item)
+						&& itemCategories.suitsStyle(item.getItemId(), style.name()))
+					{
+						suitable.add(item);
+					}
+				}
+
+				items = suitable;
+			}
+
+			if (entry.getKey() == EquipmentSlot.WEAPON)
+			{
 				items = new ArrayList<>(items);
 				items.removeIf(item -> !Constraints.isUsableWeapon(item));
 			}

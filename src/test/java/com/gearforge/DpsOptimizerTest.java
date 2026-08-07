@@ -200,6 +200,67 @@ public class DpsOptimizerTest
 	}
 
 	@SuppressWarnings("SameParameterValue")
+	@Test
+	public void rangedNeverRecommendsAMeleeWeapon()
+	{
+		// The bug this pins: with no bow owned, a longsword was returned as the ranged best-in-slot.
+		// It contributes no ranged attack and no ranged strength, so it scored badly rather than being
+		// rejected — and badly still wins when it is the only candidate left.
+		GearItem longsword = weapon(ItemID.ADAMANT_LONGSWORD, "Adamant longsword", 25, 24, 5, false);
+		GearItem arrows = ammo(ItemID.ADAMANT_ARROW, "Adamant arrow", 31);
+
+		CombatContext ranged = melee().toBuilder().style(CombatStyle.RANGED).build();
+
+		assertTrue("a sword is not a ranged setup",
+			optimizer.best(Arrays.asList(longsword, arrows), ranged, false, 3).isEmpty());
+	}
+
+	@Test
+	public void rangedPicksTheBowWhenOneIsOwned()
+	{
+		GearItem longsword = weapon(ItemID.ADAMANT_LONGSWORD, "Adamant longsword", 25, 24, 5, false);
+		GearItem shortbow = rangedWeapon(ItemID.MAGIC_SHORTBOW, "Magic shortbow", 69, 4);
+		GearItem arrows = ammo(ItemID.ADAMANT_ARROW, "Adamant arrow", 31);
+
+		CombatContext ranged = melee().toBuilder().style(CombatStyle.RANGED).build();
+		List<ScoredSetup> best = optimizer.best(Arrays.asList(longsword, shortbow, arrows), ranged, false, 1);
+
+		assertFalse(best.isEmpty());
+		assertEquals(ItemID.MAGIC_SHORTBOW, best.get(0).getSetup().get(EquipmentSlot.WEAPON).getItemId());
+	}
+
+	@Test
+	public void meleeNeverRecommendsABow()
+	{
+		GearItem shortbow = rangedWeapon(ItemID.MAGIC_SHORTBOW, "Magic shortbow", 69, 4);
+		GearItem whip = weapon(ItemID.ABYSSAL_WHIP, "Abyssal whip", 82, 82, 4, false);
+
+		ScoredSetup best = optimizer.best(Arrays.asList(shortbow, whip), melee(), false, 1).get(0);
+		assertEquals(ItemID.ABYSSAL_WHIP, best.getSetup().get(EquipmentSlot.WEAPON).getItemId());
+	}
+
+	private static GearItem rangedWeapon(int id, String name, int rangedAttack, int speed)
+	{
+		EquipmentStats stats = EquipmentStats.builder()
+			.arange(rangedAttack)
+			.slot(EquipmentSlot.WEAPON.getSlotIndex())
+			.twoHanded(true)
+			.speed(speed)
+			.build();
+
+		return new GearItem(id, name, 1, stats, EnumSet.of(Storage.BANK));
+	}
+
+	private static GearItem ammo(int id, String name, int rangedStrength)
+	{
+		EquipmentStats stats = EquipmentStats.builder()
+			.rangedStrength(rangedStrength)
+			.slot(EquipmentSlot.AMMO.getSlotIndex())
+			.build();
+
+		return new GearItem(id, name, 1000, stats, EnumSet.of(Storage.BANK));
+	}
+
 	private static GearItem weapon(int id, String name, int slash, int strength, int speed, boolean twoHanded)
 	{
 		EquipmentStats stats = EquipmentStats.builder()

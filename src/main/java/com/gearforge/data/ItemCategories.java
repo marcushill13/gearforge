@@ -86,6 +86,43 @@ public class ItemCategories
 	}
 
 	/**
+	 * Whether this item is a ranged weapon of any kind.
+	 */
+	public boolean isRangedWeapon(int itemId)
+	{
+		String category = categoryOf(itemId);
+		return BOW.equals(category)
+			|| OGRE_BOW.equals(category)
+			|| CROSSBOW.equals(category)
+			|| BALLISTA.equals(category)
+			|| THROWN.equals(category);
+	}
+
+	/**
+	 * Whether a weapon can sensibly be used with a combat style.
+	 * <p>
+	 * Without this the optimizer will happily recommend a longsword as a ranged setup when the player
+	 * owns no bow: a melee weapon contributes zero ranged attack and zero ranged strength, so it
+	 * scores badly rather than being rejected, and "badly" still wins if nothing else is available.
+	 * A wrong-but-confident answer is worse than saying you own nothing suitable.
+	 *
+	 * @param style the combat style being optimised, as {@code CombatStyle#name()}
+	 */
+	public boolean suitsStyle(int weaponId, String style)
+	{
+		boolean ranged = isRangedWeapon(weaponId);
+
+		if ("RANGED".equals(style))
+		{
+			return ranged;
+		}
+
+		// Melee and magic can both be performed with an unclassified weapon — you can cast a spell
+		// holding anything — but never with a bow or crossbow.
+		return !ranged;
+	}
+
+	/**
 	 * Whether this weapon needs ammunition to attack at all. A bow with no arrows does nothing.
 	 */
 	public boolean requiresAmmo(int weaponId)
