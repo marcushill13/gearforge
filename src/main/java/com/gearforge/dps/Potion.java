@@ -15,36 +15,45 @@ import com.gearforge.data.PlayerLevels;
  */
 public enum Potion
 {
-	NONE("No potion"),
+	NONE("No potion", -1),
 
-	OVERLOAD_PLUS("Overload (+)"),
-	SMELLING_SALTS("Smelling salts"),
-	SUPER_COMBAT("Super combat"),
-	RANGING("Ranging potion"),
-	SATURATED_HEART("Saturated heart"),
-	IMBUED_HEART("Imbued heart"),
-	FORGOTTEN_BREW("Forgotten brew"),
-	SUPER_ATTACK("Super attack"),
-	SUPER_STRENGTH("Super strength"),
-	ANCIENT_BREW("Ancient brew"),
-	OVERLOAD("Overload"),
-	MAGIC("Magic potion"),
-	ATTACK("Attack potion"),
-	STRENGTH("Strength potion"),
-	SUPER_RANGING("Super ranging"),
-	SUPER_MAGIC("Super magic"),
-	DEFENCE("Defence potion"),
-	SUPER_DEFENCE("Super defence"),
-	RUBY_HARVEST("Ruby Harvest"),
-	BLACK_WARLOCK("Black Warlock"),
-	SAPPHIRE_GLACIALIS("Sapphire Glacialis"),
-	MOONLIGHT("Moonlight potion");
+	OVERLOAD_PLUS("Overload (+)", 20996),
+	SMELLING_SALTS("Smelling salts", 27343),
+	SUPER_COMBAT("Super combat", 12695),
+	RANGING("Ranging potion", 2444),
+	SATURATED_HEART("Saturated heart", 27641),
+	IMBUED_HEART("Imbued heart", 20724),
+	FORGOTTEN_BREW("Forgotten brew", 27629),
+	SUPER_ATTACK("Super attack", 2436),
+	SUPER_STRENGTH("Super strength", 2440),
+	ANCIENT_BREW("Ancient brew", 26340),
+	OVERLOAD("Overload", 11730),
+	MAGIC("Magic potion", 3040),
+	ATTACK("Attack potion", 2428),
+	STRENGTH("Strength potion", 113),
+	SUPER_RANGING("Super ranging", 11722),
+	SUPER_MAGIC("Super magic", 11727),
+	DEFENCE("Defence potion", 2432),
+	SUPER_DEFENCE("Super defence", 2442),
+	RUBY_HARVEST("Ruby Harvest", 10020),
+	BLACK_WARLOCK("Black Warlock", 10014),
+	SAPPHIRE_GLACIALIS("Sapphire Glacialis", 10018),
+	MOONLIGHT("Moonlight potion", 29081);
 
 	private final String displayName;
 
-	Potion(String displayName)
+	/** The item to draw beside the name. Dose does not matter — the icons are the same. */
+	private final int itemId;
+
+	Potion(String displayName, int itemId)
 	{
 		this.displayName = displayName;
+		this.itemId = itemId;
+	}
+
+	public int getItemId()
+	{
+		return itemId;
 	}
 
 	public int attackBoost(PlayerLevels levels)

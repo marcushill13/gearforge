@@ -6,6 +6,7 @@ import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.GridLayout;
+import java.util.function.Consumer;
 import java.util.function.IntConsumer;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
@@ -19,6 +20,7 @@ import javax.swing.JLabel;
 import javax.swing.JList;
 import javax.swing.JPanel;
 import javax.swing.JToggleButton;
+import javax.swing.SwingConstants;
 import net.runelite.client.ui.ColorScheme;
 import net.runelite.client.ui.FontManager;
 
@@ -206,6 +208,46 @@ final class Cards
 		button.setFocusPainted(false);
 		button.setAlignmentX(Component.LEFT_ALIGNMENT);
 		return button;
+	}
+
+	/**
+	 * A titled section that expands when clicked, like the panels in the wiki's DPS calculator.
+	 * <p>
+	 * Used instead of a dropdown where the options benefit from being seen at once — prayers as a grid
+	 * of icons, potions as a scrollable list — rather than hidden one-at-a-time behind a combo box.
+	 *
+	 * @param content shown when expanded; starts hidden
+	 * @param decorate given the header button, so callers can hang an icon on it — the sprite and item
+	 *                 image loaders are asynchronous, so the icon cannot simply be passed in
+	 */
+	static JPanel expandable(String title, JComponent content, Consumer<JButton> decorate)
+	{
+		JPanel section = new JPanel();
+		section.setLayout(new BoxLayout(section, BoxLayout.Y_AXIS));
+		section.setBackground(ColorScheme.DARK_GRAY_COLOR);
+		section.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+		JButton header = button(title + "   +");
+		header.setHorizontalAlignment(SwingConstants.LEFT);
+		header.setIconTextGap(6);
+		header.setMaximumSize(new Dimension(Integer.MAX_VALUE, 26));
+		decorate.accept(header);
+
+		content.setVisible(false);
+		content.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+		header.addActionListener(event ->
+		{
+			boolean opening = !content.isVisible();
+			content.setVisible(opening);
+			header.setText(title + (opening ? "   −" : "   +"));
+			section.revalidate();
+			section.repaint();
+		});
+
+		section.add(header);
+		section.add(content);
+		return section;
 	}
 
 	/**

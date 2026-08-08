@@ -12,10 +12,11 @@ import com.gearforge.data.Monster;
 import com.gearforge.data.MonsterRepository;
 import com.gearforge.data.PlayerLevels;
 import com.gearforge.data.PlayerModel;
-import com.gearforge.dps.Potion;
 import com.gearforge.dps.CombatContext;
 import com.gearforge.dps.CombatPrayer;
 import com.gearforge.dps.CombatStyle;
+import com.gearforge.dps.Potion;
+import com.gearforge.dps.PrayerIcon;
 import com.gearforge.dps.Target;
 import com.gearforge.optimizer.DpsOptimizer;
 import com.gearforge.optimizer.GreedyOptimizer;
@@ -27,9 +28,11 @@ import com.gearforge.setups.SetupStore;
 import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Dimension;
+import java.awt.GridLayout;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.EnumMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -38,12 +41,12 @@ import javax.annotation.Nullable;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import javax.swing.BorderFactory;
+import javax.swing.DefaultComboBoxModel;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
-import javax.swing.DefaultComboBoxModel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextField;
@@ -51,8 +54,10 @@ import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
+import net.runelite.api.gameval.SpriteID;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.game.ItemManager;
+import net.runelite.client.game.SpriteManager;
 import net.runelite.client.ui.ColorScheme;
 import net.runelite.client.ui.FontManager;
 
@@ -81,6 +86,7 @@ class BisTab extends JPanel
 	private final BankFilterService bankFilterService;
 	private final MonsterRepository monsters;
 	private final ItemManager itemManager;
+	private final SpriteManager spriteManager;
 
 	/** Matches the wiki calculator's habit of scoring against a low-defence crab by default. */
 	private static final String DEFAULT_TARGET = "Ammonite Crab";
@@ -105,8 +111,16 @@ class BisTab extends JPanel
 	 */
 	private SlayerChoice slayerChoice = SlayerChoice.AUTO;
 
-	private final JComboBox<PrayerChoice> prayerPicker = Cards.comboBox(PrayerChoice.values());
-	private final JComboBox<Potion> potionPicker = Cards.comboBox(Potion.values());
+	/** Selected prayer and potion. Neither is on by default; both are chosen explicitly. */
+	private CombatPrayer prayer = CombatPrayer.NONE;
+	private Potion potion = Potion.NONE;
+
+	/**
+	 * Plain buttons rather than toggles: RuneLite's sprite and item image helpers only accept
+	 * {@link JButton}, and selection is drawn here anyway so the two pickers match.
+	 */
+	private final Map<CombatPrayer, JButton> prayerButtons = new EnumMap<>(CombatPrayer.class);
+	private final Map<Potion, JButton> potionButtons = new EnumMap<>(Potion.class);
 
 	/** The setup currently on screen, so it can be saved without recomputing. */
 	private Map<EquipmentSlot, GearItem> shownSetup = Collections.emptyMap();
@@ -128,7 +142,8 @@ class BisTab extends JPanel
 		SetupStore setupStore,
 		BankFilterService bankFilterService,
 		MonsterRepository monsters,
-		ItemManager itemManager)
+		ItemManager itemManager,
+		SpriteManager spriteManager)
 	{
 		this.clientThread = clientThread;
 		this.executor = executor;
@@ -142,6 +157,7 @@ class BisTab extends JPanel
 		this.bankFilterService = bankFilterService;
 		this.monsters = monsters;
 		this.itemManager = itemManager;
+		this.spriteManager = spriteManager;
 
 		setLayout(new BorderLayout());
 		setBackground(ColorScheme.DARK_GRAY_COLOR);
@@ -163,6 +179,129 @@ class BisTab extends JPanel
 		add(scroll, BorderLayout.CENTER);
 
 		profilePicker.addActionListener(event -> rebuild());
+	}
+
+	/**
+	 * The prayers as a grid of their in-game icons, four across, matching the prayer book.
+	 * <p>
+	 * Single-select: clicking the active prayer turns it off. GearForge scores one prayer at a time,
+	 * and the strong prayers each already cover their whole style.
+	 */
+	private JPanel buildPrayerGrid()
+	{
+		JPanel grid = new JPanel(new GridLayout(0, 4, 2, 2));
+		grid.setBackground(ColorScheme.DARK_GRAY_COLOR);
+		grid.setBorder(BorderFactory.createEmptyBorder(4, 0, 4, 0));
+
+		for (CombatPrayer candidate : CombatPrayer.values())
+		{
+			int sprite = PrayerIcon.spriteFor(candidate);
+			if (sprite < 0)
+			{
+				// NONE has no icon; it is expressed by deselecting instead.
+				continue;
+			}
+
+			JButton button = new JButton();
+			button.setToolTipText(PrayerIcon.nameOf(candidate));
+			button.setPreferredSize(new Dimension(34, 34));
+			button.setFocusPainted(false);
+			button.setBorderPainted(false);
+			button.setOpaque(true);
+			spriteManager.addSpriteTo(button, sprite, 0);
+
+			button.addActionListener(event ->
+			{
+				prayer = prayer == candidate ? CombatPrayer.NONE : candidate;
+				paintPrayerButtons();
+				rebuild();
+			});
+
+			prayerButtons.put(candidate, button);
+			grid.add(button);
+		}
+
+		paintPrayerButtons();
+		return grid;
+	}
+
+	private void paintPrayerButtons()
+	{
+		prayerButtons.forEach((candidate, button) ->
+		{
+			boolean on = candidate == prayer;
+			button.setBackground(on ? ColorScheme.BRAND_ORANGE : ColorScheme.DARKER_GRAY_COLOR);
+		});
+	}
+
+	/**
+	 * The potions as a scrollable list of item icons and names.
+	 */
+	private JPanel buildBoostList()
+	{
+		JPanel list = new JPanel();
+		list.setLayout(new BoxLayout(list, BoxLayout.Y_AXIS));
+		list.setBackground(ColorScheme.DARK_GRAY_COLOR);
+
+		for (Potion candidate : Potion.values())
+		{
+			if (candidate == Potion.NONE)
+			{
+				continue;
+			}
+
+			JButton button = new JButton(candidate.toString());
+			button.setHorizontalAlignment(SwingConstants.LEFT);
+			button.setFont(FontManager.getRunescapeSmallFont());
+			button.setFocusPainted(false);
+			button.setBorderPainted(false);
+			button.setOpaque(true);
+			button.setIconTextGap(6);
+			button.setMaximumSize(new Dimension(Integer.MAX_VALUE, 28));
+			button.setAlignmentX(Component.LEFT_ALIGNMENT);
+			itemManager.getImage(candidate.getItemId()).addTo(button);
+
+			button.addActionListener(event ->
+			{
+				potion = potion == candidate ? Potion.NONE : candidate;
+				paintPotionButtons();
+				rebuild();
+			});
+
+			potionButtons.put(candidate, button);
+			list.add(button);
+		}
+
+		paintPotionButtons();
+
+		JPanel holder = new JPanel(new BorderLayout());
+		holder.setBackground(ColorScheme.DARK_GRAY_COLOR);
+		holder.add(list, BorderLayout.NORTH);
+
+		JScrollPane scroll = new JScrollPane(
+			holder, JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED, JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+		scroll.setBorder(BorderFactory.createEmptyBorder());
+		scroll.getVerticalScrollBar().setUnitIncrement(16);
+		scroll.getViewport().setBackground(ColorScheme.DARK_GRAY_COLOR);
+		// Capped so the list scrolls rather than pushing the results off screen.
+		scroll.setPreferredSize(new Dimension(0, 150));
+		scroll.setMaximumSize(new Dimension(Integer.MAX_VALUE, 150));
+
+		JPanel wrapper = new JPanel(new BorderLayout());
+		wrapper.setBackground(ColorScheme.DARK_GRAY_COLOR);
+		wrapper.setBorder(BorderFactory.createEmptyBorder(4, 0, 4, 0));
+		wrapper.add(scroll, BorderLayout.CENTER);
+		return wrapper;
+	}
+
+	private void paintPotionButtons()
+	{
+		potionButtons.forEach((candidate, button) ->
+		{
+			boolean on = candidate == potion;
+			button.setBackground(on ? ColorScheme.BRAND_ORANGE : ColorScheme.DARKER_GRAY_COLOR);
+			button.setForeground(on ? ColorScheme.DARKER_GRAY_COLOR : ColorScheme.LIGHT_GRAY_COLOR);
+		});
 	}
 
 	private JPanel buildControls()
@@ -204,13 +343,12 @@ class BisTab extends JPanel
 			})));
 		controls.add(Cards.gap(8));
 
-		controls.add(Cards.field("Prayer", prayerPicker));
+		controls.add(Cards.expandable("Prayers", buildPrayerGrid(),
+			header -> spriteManager.addSpriteTo(header, SpriteID.Staticons.PRAYER, 0)));
+		controls.add(Cards.gap(6));
+		controls.add(Cards.expandable("Boosts", buildBoostList(),
+			header -> itemManager.getImage(Potion.SUPER_COMBAT.getItemId()).addTo(header)));
 		controls.add(Cards.gap(8));
-		controls.add(Cards.field("Boost", potionPicker));
-		controls.add(Cards.gap(8));
-
-		prayerPicker.addActionListener(event -> rebuild());
-		potionPicker.addActionListener(event -> rebuild());
 
 		targetSearch.setFont(FontManager.getRunescapeSmallFont());
 		targetSearch.setBackground(ColorScheme.DARKER_GRAY_COLOR);
@@ -308,8 +446,8 @@ class BisTab extends JPanel
 
 		// Read on the EDT and carried through, because the search runs on another thread and must not
 		// touch Swing state.
-		PrayerChoice prayer = (PrayerChoice) prayerPicker.getSelectedItem();
-		Potion potion = (Potion) potionPicker.getSelectedItem();
+		CombatPrayer chosenPrayer = this.prayer;
+		Potion chosenPotion = this.potion;
 
 		clientThread.invoke(() ->
 		{
@@ -328,7 +466,7 @@ class BisTab extends JPanel
 			// levels from the client. The search itself is pure computation and moves off the game
 			// thread — running a beam search there froze the client on every gear swap.
 			executor.execute(() ->
-				optimise(owned, levels, profile, pool, slayer, target, prayer, potion));
+				optimise(owned, levels, profile, pool, slayer, target, chosenPrayer, chosenPotion));
 		});
 	}
 
@@ -342,7 +480,7 @@ class BisTab extends JPanel
 		GearPool pool,
 		SlayerChoice slayer,
 		@Nullable Monster target,
-		PrayerChoice prayer,
+		CombatPrayer prayer,
 		Potion potion)
 	{
 		boolean slayerTask = slayer.resolve(levels.isOnSlayerTask());
@@ -398,7 +536,7 @@ class BisTab extends JPanel
 		Profile profile,
 		PlayerLevels levels,
 		@Nullable Monster target,
-		PrayerChoice prayerChoice,
+		CombatPrayer prayer,
 		Potion potion)
 	{
 		CombatStyle style = profile.getStyle();
@@ -414,7 +552,7 @@ class BisTab extends JPanel
 			.strengthBoost(potion.strengthBoost(levels))
 			.rangedBoost(potion.rangedBoost(levels))
 			.magicBoost(potion.magicBoost(levels))
-			.prayer(prayerChoice.resolve(style))
+			.prayer(prayer)
 			.style(style)
 			.equipment(EquipmentStats.builder().build())
 			.target(target == null ? Target.dummy() : target.toTarget())
@@ -794,58 +932,6 @@ class BisTab extends JPanel
 	 * Whether slayer helmet bonuses count. Defaults to reading the player's actual task, with manual
 	 * overrides for planning ahead.
 	 */
-	/**
-	 * The prayer dropdown. "Best for the style" is the default because the overview scores five styles
-	 * at once and no single prayer suits all of them — but every prayer is selectable for comparing
-	 * them, which is the point of having the control.
-	 */
-	private enum PrayerChoice
-	{
-		BEST("Best for the style", null),
-		NONE("No prayer", CombatPrayer.NONE),
-
-		PIETY("Piety", CombatPrayer.PIETY),
-		CHIVALRY("Chivalry", CombatPrayer.CHIVALRY),
-		ULTIMATE_STRENGTH("Ultimate Strength", CombatPrayer.ULTIMATE_STRENGTH),
-		SUPERHUMAN_STRENGTH("Superhuman Strength", CombatPrayer.SUPERHUMAN_STRENGTH),
-		BURST_OF_STRENGTH("Burst of Strength", CombatPrayer.BURST_OF_STRENGTH),
-		INCREDIBLE_REFLEXES("Incredible Reflexes", CombatPrayer.INCREDIBLE_REFLEXES),
-		IMPROVED_REFLEXES("Improved Reflexes", CombatPrayer.IMPROVED_REFLEXES),
-		CLARITY_OF_THOUGHT("Clarity of Thought", CombatPrayer.CLARITY_OF_THOUGHT),
-
-		RIGOUR("Rigour", CombatPrayer.RIGOUR),
-		DEADEYE("Deadeye", CombatPrayer.DEADEYE),
-		EAGLE_EYE("Eagle Eye", CombatPrayer.EAGLE_EYE),
-		HAWK_EYE("Hawk Eye", CombatPrayer.HAWK_EYE),
-		SHARP_EYE("Sharp Eye", CombatPrayer.SHARP_EYE),
-
-		AUGURY("Augury", CombatPrayer.AUGURY),
-		MYSTIC_MIGHT("Mystic Might", CombatPrayer.MYSTIC_MIGHT),
-		MYSTIC_LORE("Mystic Lore", CombatPrayer.MYSTIC_LORE),
-		MYSTIC_WILL("Mystic Will", CombatPrayer.MYSTIC_WILL);
-
-		private final String displayName;
-		@Nullable
-		private final CombatPrayer prayer;
-
-		PrayerChoice(String displayName, @Nullable CombatPrayer prayer)
-		{
-			this.displayName = displayName;
-			this.prayer = prayer;
-		}
-
-		CombatPrayer resolve(CombatStyle style)
-		{
-			return prayer == null ? CombatPrayer.bestFor(style) : prayer;
-		}
-
-		@Override
-		public String toString()
-		{
-			return displayName;
-		}
-	}
-
 	private enum SlayerChoice
 	{
 		AUTO("Auto"),
