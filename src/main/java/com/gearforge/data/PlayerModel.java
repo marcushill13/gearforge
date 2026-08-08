@@ -58,6 +58,7 @@ public class PlayerModel
 			.prayer(level(Skill.PRAYER))
 			.hitpoints(level(Skill.HITPOINTS))
 			.slayer(level(Skill.SLAYER))
+			.herblore(level(Skill.HERBLORE))
 			.onSlayerTask(hasSlayerTask())
 			.build();
 	}

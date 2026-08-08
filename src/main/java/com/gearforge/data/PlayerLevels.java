@@ -20,6 +20,9 @@ public class PlayerLevels
 	int hitpoints;
 	int slayer;
 
+	/** Only the Moonlight potion needs this — its boost scales with Herblore. */
+	int herblore;
+
 	/** Whether the player currently has a slayer task assigned. */
 	boolean onSlayerTask;
 
@@ -59,7 +62,7 @@ public class PlayerLevels
 	{
 		return PlayerLevels.builder()
 			.attack(99).strength(99).defence(99).ranged(99).magic(99)
-			.prayer(99).hitpoints(99).slayer(99)
+			.prayer(99).hitpoints(99).slayer(99).herblore(99)
 			.build();
 	}
 }

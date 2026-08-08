@@ -11,10 +11,10 @@ import com.gearforge.data.Monster;
 import com.gearforge.data.MonsterRepository;
 import com.gearforge.data.PlayerLevels;
 import com.gearforge.data.PlayerModel;
-import com.gearforge.dps.Boosts;
 import com.gearforge.dps.CombatContext;
 import com.gearforge.dps.CombatPrayer;
 import com.gearforge.dps.CombatStyle;
+import com.gearforge.dps.Potion;
 import com.gearforge.dps.Target;
 import com.gearforge.optimizer.DpsOptimizer;
 import com.gearforge.optimizer.ScoredSetup;
@@ -69,6 +69,13 @@ class BossesTab extends JPanel
 	/** Styles raced against each other for the chosen boss. */
 	private static final List<CombatStyle> STYLES = Arrays.asList(
 		CombatStyle.STAB, CombatStyle.SLASH, CombatStyle.CRUSH, CombatStyle.RANGED, CombatStyle.MAGIC);
+
+	/**
+	 * Bosses are fought buffed, so one is assumed. Super combat covers melee and the overloads are
+	 * raid-specific, so this is the safe general choice; ranged and magic get their own boosts from it
+	 * only where the potion actually provides them.
+	 */
+	private static final Potion BOSS_POTION = Potion.SUPER_COMBAT;
 
 	/** Ice Barrage, as on the BiS tab — magic is meaningless without fixing a spell. */
 	private static final int ASSUMED_SPELL_DAMAGE = 30;
@@ -328,10 +335,10 @@ class BossesTab extends JPanel
 			.strengthLevel(levels.getStrength())
 			.rangedLevel(levels.getRanged())
 			.magicLevel(levels.getMagic())
-			.attackBoost(Boosts.STANDARD.meleeBoost(levels.getAttack()))
-			.strengthBoost(Boosts.STANDARD.meleeBoost(levels.getStrength()))
-			.rangedBoost(Boosts.STANDARD.rangedBoost(levels.getRanged()))
-			.magicBoost(Boosts.STANDARD.magicBoost(levels.getMagic()))
+			.attackBoost(BOSS_POTION.attackBoost(levels))
+			.strengthBoost(BOSS_POTION.strengthBoost(levels))
+			.rangedBoost(BOSS_POTION.rangedBoost(levels))
+			.magicBoost(BOSS_POTION.magicBoost(levels))
 			.prayer(CombatPrayer.bestFor(style))
 			.style(style)
 			.equipment(EquipmentStats.builder().build())

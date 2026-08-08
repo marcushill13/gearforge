@@ -12,7 +12,7 @@ import com.gearforge.data.Monster;
 import com.gearforge.data.MonsterRepository;
 import com.gearforge.data.PlayerLevels;
 import com.gearforge.data.PlayerModel;
-import com.gearforge.dps.Boosts;
+import com.gearforge.dps.Potion;
 import com.gearforge.dps.CombatContext;
 import com.gearforge.dps.CombatPrayer;
 import com.gearforge.dps.CombatStyle;
@@ -105,8 +105,8 @@ class BisTab extends JPanel
 	 */
 	private SlayerChoice slayerChoice = SlayerChoice.AUTO;
 
-	/** Whether prayers and potions are counted. Defaults to both, matching how people actually fight. */
-	private Buffs buffs = Buffs.POTION_AND_PRAYER;
+	private final JComboBox<PrayerChoice> prayerPicker = Cards.comboBox(PrayerChoice.values());
+	private final JComboBox<Potion> potionPicker = Cards.comboBox(Potion.values());
 
 	/** The setup currently on screen, so it can be saved without recomputing. */
 	private Map<EquipmentSlot, GearItem> shownSetup = Collections.emptyMap();
@@ -204,20 +204,13 @@ class BisTab extends JPanel
 			})));
 		controls.add(Cards.gap(8));
 
-		Buffs[] buffOptions = Buffs.values();
-		String[] buffLabels = new String[buffOptions.length];
-		for (int i = 0; i < buffOptions.length; i++)
-		{
-			buffLabels[i] = buffOptions[i].toString();
-		}
-
-		controls.add(Cards.field("Prayer and potion", Cards.segmented(
-			buffLabels, buffs.ordinal(), index ->
-			{
-				buffs = buffOptions[index];
-				rebuild();
-			})));
+		controls.add(Cards.field("Prayer", prayerPicker));
 		controls.add(Cards.gap(8));
+		controls.add(Cards.field("Boost", potionPicker));
+		controls.add(Cards.gap(8));
+
+		prayerPicker.addActionListener(event -> rebuild());
+		potionPicker.addActionListener(event -> rebuild());
 
 		targetSearch.setFont(FontManager.getRunescapeSmallFont());
 		targetSearch.setBackground(ColorScheme.DARKER_GRAY_COLOR);
@@ -313,6 +306,11 @@ class BisTab extends JPanel
 		SlayerChoice slayer = this.slayerChoice;
 		Monster target = (Monster) targetPicker.getSelectedItem();
 
+		// Read on the EDT and carried through, because the search runs on another thread and must not
+		// touch Swing state.
+		PrayerChoice prayer = (PrayerChoice) prayerPicker.getSelectedItem();
+		Potion potion = (Potion) potionPicker.getSelectedItem();
+
 		clientThread.invoke(() ->
 		{
 			if (pool == GearPool.USABLE && !playerModel.isLoggedIn())
@@ -329,7 +327,8 @@ class BisTab extends JPanel
 			// Only the two lookups above need the client: item names come from the item cache and
 			// levels from the client. The search itself is pure computation and moves off the game
 			// thread — running a beam search there froze the client on every gear swap.
-			executor.execute(() -> optimise(owned, levels, profile, pool, slayer, target));
+			executor.execute(() ->
+				optimise(owned, levels, profile, pool, slayer, target, prayer, potion));
 		});
 	}
 
@@ -342,7 +341,9 @@ class BisTab extends JPanel
 		Profile profile,
 		GearPool pool,
 		SlayerChoice slayer,
-		@Nullable Monster target)
+		@Nullable Monster target,
+		PrayerChoice prayer,
+		Potion potion)
 	{
 		boolean slayerTask = slayer.resolve(levels.isOnSlayerTask());
 		List<GearItem> pooled = pool == GearPool.USABLE ? onlyEquippable(owned, levels) : owned;
@@ -353,7 +354,7 @@ class BisTab extends JPanel
 			for (CombatStyle style : OFFENSIVE_STYLES)
 			{
 				List<ScoredSetup> best = dpsOptimizer.best(
-					pooled, contextFor(Profile.forStyle(style), levels, target), slayerTask, 1);
+					pooled, contextFor(Profile.forStyle(style), levels, target, prayer, potion), slayerTask, 1);
 
 				if (!best.isEmpty())
 				{
@@ -366,7 +367,7 @@ class BisTab extends JPanel
 		else if (profile.isOffensive())
 		{
 			List<ScoredSetup> best = dpsOptimizer.best(
-				pooled, contextFor(profile, levels, target), slayerTask, 3);
+				pooled, contextFor(profile, levels, target, prayer, potion), slayerTask, 3);
 			SwingUtilities.invokeLater(() -> renderOffensive(best, profile, pool, target));
 		}
 		else
@@ -393,25 +394,27 @@ class BisTab extends JPanel
 	/**
 	 * Must run on the client thread — player levels come from the client.
 	 */
-	private CombatContext contextFor(Profile profile, PlayerLevels levels, @Nullable Monster target)
+	private CombatContext contextFor(
+		Profile profile,
+		PlayerLevels levels,
+		@Nullable Monster target,
+		PrayerChoice prayerChoice,
+		Potion potion)
 	{
 		CombatStyle style = profile.getStyle();
 
 		// Prayers and potions do not scale every item evenly, so leaving them out can flip which item
-		// wins. Applied per style, since the sensible prayer and potion differ between them.
-		Boosts boosts = buffs.getBoosts();
-		CombatPrayer prayer = buffs.isPraying() ? CombatPrayer.bestFor(style) : CombatPrayer.NONE;
-
+		// wins. That was the first thing players reported after release.
 		return CombatContext.builder()
 			.attackLevel(levels.getAttack())
 			.strengthLevel(levels.getStrength())
 			.rangedLevel(levels.getRanged())
 			.magicLevel(levels.getMagic())
-			.attackBoost(boosts.meleeBoost(levels.getAttack()))
-			.strengthBoost(boosts.meleeBoost(levels.getStrength()))
-			.rangedBoost(boosts.rangedBoost(levels.getRanged()))
-			.magicBoost(boosts.magicBoost(levels.getMagic()))
-			.prayer(prayer)
+			.attackBoost(potion.attackBoost(levels))
+			.strengthBoost(potion.strengthBoost(levels))
+			.rangedBoost(potion.rangedBoost(levels))
+			.magicBoost(potion.magicBoost(levels))
+			.prayer(prayerChoice.resolve(style))
 			.style(style)
 			.equipment(EquipmentStats.builder().build())
 			.target(target == null ? Target.dummy() : target.toTarget())
@@ -792,36 +795,48 @@ class BisTab extends JPanel
 	 * overrides for planning ahead.
 	 */
 	/**
-	 * Whether to score with prayers and potions active.
-	 * <p>
-	 * Defaults to both because that is how gear is actually used, and because scoring unbuffed can
-	 * rank items differently from every other DPS tool.
+	 * The prayer dropdown. "Best for the style" is the default because the overview scores five styles
+	 * at once and no single prayer suits all of them — but every prayer is selectable for comparing
+	 * them, which is the point of having the control.
 	 */
-	private enum Buffs
+	private enum PrayerChoice
 	{
-		NONE("Neither", Boosts.NONE, false),
-		POTION("Potion", Boosts.STANDARD, false),
-		POTION_AND_PRAYER("Both", Boosts.STANDARD, true);
+		BEST("Best for the style", null),
+		NONE("No prayer", CombatPrayer.NONE),
+
+		PIETY("Piety", CombatPrayer.PIETY),
+		CHIVALRY("Chivalry", CombatPrayer.CHIVALRY),
+		ULTIMATE_STRENGTH("Ultimate Strength", CombatPrayer.ULTIMATE_STRENGTH),
+		SUPERHUMAN_STRENGTH("Superhuman Strength", CombatPrayer.SUPERHUMAN_STRENGTH),
+		BURST_OF_STRENGTH("Burst of Strength", CombatPrayer.BURST_OF_STRENGTH),
+		INCREDIBLE_REFLEXES("Incredible Reflexes", CombatPrayer.INCREDIBLE_REFLEXES),
+		IMPROVED_REFLEXES("Improved Reflexes", CombatPrayer.IMPROVED_REFLEXES),
+		CLARITY_OF_THOUGHT("Clarity of Thought", CombatPrayer.CLARITY_OF_THOUGHT),
+
+		RIGOUR("Rigour", CombatPrayer.RIGOUR),
+		DEADEYE("Deadeye", CombatPrayer.DEADEYE),
+		EAGLE_EYE("Eagle Eye", CombatPrayer.EAGLE_EYE),
+		HAWK_EYE("Hawk Eye", CombatPrayer.HAWK_EYE),
+		SHARP_EYE("Sharp Eye", CombatPrayer.SHARP_EYE),
+
+		AUGURY("Augury", CombatPrayer.AUGURY),
+		MYSTIC_MIGHT("Mystic Might", CombatPrayer.MYSTIC_MIGHT),
+		MYSTIC_LORE("Mystic Lore", CombatPrayer.MYSTIC_LORE),
+		MYSTIC_WILL("Mystic Will", CombatPrayer.MYSTIC_WILL);
 
 		private final String displayName;
-		private final Boosts boosts;
-		private final boolean praying;
+		@Nullable
+		private final CombatPrayer prayer;
 
-		Buffs(String displayName, Boosts boosts, boolean praying)
+		PrayerChoice(String displayName, @Nullable CombatPrayer prayer)
 		{
 			this.displayName = displayName;
-			this.boosts = boosts;
-			this.praying = praying;
+			this.prayer = prayer;
 		}
 
-		Boosts getBoosts()
+		CombatPrayer resolve(CombatStyle style)
 		{
-			return boosts;
-		}
-
-		boolean isPraying()
-		{
-			return praying;
+			return prayer == null ? CombatPrayer.bestFor(style) : prayer;
 		}
 
 		@Override
