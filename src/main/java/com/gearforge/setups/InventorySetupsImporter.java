@@ -48,14 +48,6 @@ public class InventorySetupsImporter
 	}
 
 	/**
-	 * @return true if Inventory Setups has any setups stored to import
-	 */
-	public boolean hasSetupsToImport()
-	{
-		return !setupKeys().isEmpty();
-	}
-
-	/**
 	 * Reads every Inventory Setups loadout and converts it. Setups that fail to parse are skipped with
 	 * a log line rather than aborting the whole import.
 	 */

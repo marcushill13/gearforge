@@ -150,16 +150,16 @@ class SetupsTab extends JPanel
 		paste.addActionListener(event -> pasteShareCode());
 		controls.add(paste);
 
-		if (importer.hasSetupsToImport())
-		{
-			controls.add(Cards.gap(4));
+		controls.add(Cards.gap(4));
 
-			JButton importSetups = Cards.button("Import from Inventory Setups");
-			importSetups.setMaximumSize(new Dimension(Integer.MAX_VALUE, 26));
-			importSetups.setToolTipText("Copy your Inventory Setups loadouts across. Nothing there is changed.");
-			importSetups.addActionListener(event -> importFromInventorySetups());
-			controls.add(importSetups);
-		}
+		// Shown unconditionally. This panel is built once, so gating it on a check made at construction
+		// hid the button from anyone who installed Inventory Setups or made their first loadout later —
+		// the feature simply looked absent. Checking when it is clicked always reflects reality.
+		JButton importSetups = Cards.button("Import from Inventory Setups");
+		importSetups.setMaximumSize(new Dimension(Integer.MAX_VALUE, 26));
+		importSetups.setToolTipText("Copy your Inventory Setups loadouts across. Nothing there is changed.");
+		importSetups.addActionListener(event -> importFromInventorySetups());
+		controls.add(importSetups);
 
 		return controls;
 	}
@@ -218,8 +218,9 @@ class SetupsTab extends JPanel
 		if (found.isEmpty())
 		{
 			JOptionPane.showMessageDialog(this,
-				"Couldn't read any setups from Inventory Setups.", "GearForge",
-				JOptionPane.INFORMATION_MESSAGE);
+				"No Inventory Setups loadouts found.\n\nThis reads the setups that plugin has already "
+					+ "saved, so it needs Inventory Setups installed with at least one setup in it.",
+				"GearForge", JOptionPane.INFORMATION_MESSAGE);
 			return;
 		}
 
