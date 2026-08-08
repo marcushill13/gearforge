@@ -44,8 +44,14 @@ function classifyWeapon(item) {
       return 'THROWN';
     case 'Powered Staff':
       return 'POWERED_STAFF';
+    // Staves are the magic weapons. Classifying them stops the optimizer offering a melee weapon as
+    // a magic setup, which it will otherwise do because spell damage does not depend on the weapon.
+    case 'Staff':
+    case 'Bladed Staff':
+    case 'Polestaff':
+      return 'STAFF';
     default:
-      // Melee and staves need no ammo, so they are left unclassified and unconstrained.
+      // Melee weapons need no ammo and are left unclassified.
       return null;
   }
 }

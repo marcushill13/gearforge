@@ -33,6 +33,7 @@ public class ItemCategories
 	public static final String BALLISTA = "BALLISTA";
 	public static final String THROWN = "THROWN";
 	public static final String POWERED_STAFF = "POWERED_STAFF";
+	public static final String STAFF = "STAFF";
 
 	public static final String ARROW = "ARROW";
 	public static final String BRUTAL = "BRUTAL";
@@ -110,16 +111,25 @@ public class ItemCategories
 	 */
 	public boolean suitsStyle(int weaponId, String style)
 	{
+		String category = categoryOf(weaponId);
 		boolean ranged = isRangedWeapon(weaponId);
+		boolean magic = STAFF.equals(category) || POWERED_STAFF.equals(category);
 
 		if ("RANGED".equals(style))
 		{
 			return ranged;
 		}
 
-		// Melee and magic can both be performed with an unclassified weapon — you can cast a spell
-		// holding anything — but never with a bow or crossbow.
-		return !ranged;
+		// A spell can technically be cast holding anything, but "best in slot for magic" holding a
+		// melee weapon is nonsense to a player — and because spell damage does not depend on the
+		// weapon, the search would otherwise pick whatever had the best incidental bonuses.
+		if ("MAGIC".equals(style))
+		{
+			return magic;
+		}
+
+		// Melee: anything that is not a bow, crossbow or staff.
+		return !ranged && !magic;
 	}
 
 	/**

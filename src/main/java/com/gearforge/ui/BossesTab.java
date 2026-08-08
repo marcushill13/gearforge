@@ -11,7 +11,9 @@ import com.gearforge.data.Monster;
 import com.gearforge.data.MonsterRepository;
 import com.gearforge.data.PlayerLevels;
 import com.gearforge.data.PlayerModel;
+import com.gearforge.dps.Boosts;
 import com.gearforge.dps.CombatContext;
+import com.gearforge.dps.CombatPrayer;
 import com.gearforge.dps.CombatStyle;
 import com.gearforge.dps.Target;
 import com.gearforge.optimizer.DpsOptimizer;
@@ -319,11 +321,18 @@ class BossesTab extends JPanel
 
 	private CombatContext contextFor(CombatStyle style, PlayerLevels levels, Target target)
 	{
+		// Bosses are fought with prayers and potions up, so score that way. Leaving them out can flip
+		// which item wins, because they do not scale every item evenly.
 		return CombatContext.builder()
 			.attackLevel(levels.getAttack())
 			.strengthLevel(levels.getStrength())
 			.rangedLevel(levels.getRanged())
 			.magicLevel(levels.getMagic())
+			.attackBoost(Boosts.STANDARD.meleeBoost(levels.getAttack()))
+			.strengthBoost(Boosts.STANDARD.meleeBoost(levels.getStrength()))
+			.rangedBoost(Boosts.STANDARD.rangedBoost(levels.getRanged()))
+			.magicBoost(Boosts.STANDARD.magicBoost(levels.getMagic()))
+			.prayer(CombatPrayer.bestFor(style))
 			.style(style)
 			.equipment(EquipmentStats.builder().build())
 			.target(target)
@@ -386,6 +395,7 @@ class BossesTab extends JPanel
 		List<String> why = new ArrayList<>();
 		why.add(String.format("%.1f%% accuracy, max hit %d",
 			best.getScore().accuracyPercent(), best.getScore().getMaxHit()));
+		why.add("Assumes a potion and the best prayer for the style.");
 		why.add("Its defences — stab " + monster.getDefensive().getStab()
 			+ ", slash " + monster.getDefensive().getSlash()
 			+ ", crush " + monster.getDefensive().getCrush()

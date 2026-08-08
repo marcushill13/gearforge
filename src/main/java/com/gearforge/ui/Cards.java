@@ -33,6 +33,17 @@ final class Cards
 	/** Red rather than the brand orange, so a warning does not read as ordinary highlighting. */
 	private static final Color WARNING_COLOR = new Color(220, 90, 70);
 
+	/**
+	 * Secondary text. RuneLite's MEDIUM_GRAY_COLOR on the panel background is grey-on-grey and was
+	 * reported as hard to read; this keeps the hierarchy while staying legible.
+	 */
+	private static final Color MUTED_TEXT = new Color(170, 170, 170);
+
+	/**
+	 * Rows sit inside a scroll pane, and a trailing value would otherwise be clipped by the scrollbar.
+	 */
+	static final int SCROLLBAR_ALLOWANCE = 12;
+
 	private Cards()
 	{
 	}
@@ -69,7 +80,7 @@ final class Cards
 	{
 		JLabel label = new JLabel(text.toUpperCase());
 		label.setFont(FontManager.getRunescapeSmallFont());
-		label.setForeground(ColorScheme.MEDIUM_GRAY_COLOR);
+		label.setForeground(MUTED_TEXT);
 		label.setAlignmentX(Component.LEFT_ALIGNMENT);
 		label.setBorder(BorderFactory.createEmptyBorder(0, 0, 4, 0));
 		return label;
@@ -141,7 +152,7 @@ final class Cards
 	{
 		JLabel label = new JLabel("<html><body style='width:145px'>" + escape(text) + "</body></html>");
 		label.setFont(FontManager.getRunescapeSmallFont());
-		label.setForeground(ColorScheme.MEDIUM_GRAY_COLOR);
+		label.setForeground(MUTED_TEXT);
 		label.setAlignmentX(Component.LEFT_ALIGNMENT);
 		return label;
 	}

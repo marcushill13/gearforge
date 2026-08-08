@@ -35,7 +35,8 @@ class ItemRow extends JPanel
 
 		setLayout(new BorderLayout(8, 0));
 		setBackground(ColorScheme.DARKER_GRAY_COLOR);
-		setBorder(BorderFactory.createEmptyBorder(4, 6, 4, 6));
+		// Extra room on the right so the value is not clipped by the scroll pane's scrollbar.
+		setBorder(BorderFactory.createEmptyBorder(4, 6, 4, 6 + Cards.SCROLLBAR_ALLOWANCE));
 		setAlignmentX(LEFT_ALIGNMENT);
 		// Without a ceiling, BoxLayout stretches the last row to fill the viewport.
 		setMaximumSize(new Dimension(Integer.MAX_VALUE, 42));

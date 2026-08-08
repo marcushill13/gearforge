@@ -12,7 +12,9 @@ import com.gearforge.data.Monster;
 import com.gearforge.data.MonsterRepository;
 import com.gearforge.data.PlayerLevels;
 import com.gearforge.data.PlayerModel;
+import com.gearforge.dps.Boosts;
 import com.gearforge.dps.CombatContext;
+import com.gearforge.dps.CombatPrayer;
 import com.gearforge.dps.CombatStyle;
 import com.gearforge.dps.Target;
 import com.gearforge.optimizer.DpsOptimizer;
@@ -102,6 +104,9 @@ class BisTab extends JPanel
 	 * for planning a task you have not been assigned yet.
 	 */
 	private SlayerChoice slayerChoice = SlayerChoice.AUTO;
+
+	/** Whether prayers and potions are counted. Defaults to both, matching how people actually fight. */
+	private Buffs buffs = Buffs.POTION_AND_PRAYER;
 
 	/** The setup currently on screen, so it can be saved without recomputing. */
 	private Map<EquipmentSlot, GearItem> shownSetup = Collections.emptyMap();
@@ -195,6 +200,21 @@ class BisTab extends JPanel
 			slayerLabels, slayerChoice.ordinal(), index ->
 			{
 				slayerChoice = choices[index];
+				rebuild();
+			})));
+		controls.add(Cards.gap(8));
+
+		Buffs[] buffOptions = Buffs.values();
+		String[] buffLabels = new String[buffOptions.length];
+		for (int i = 0; i < buffOptions.length; i++)
+		{
+			buffLabels[i] = buffOptions[i].toString();
+		}
+
+		controls.add(Cards.field("Prayer and potion", Cards.segmented(
+			buffLabels, buffs.ordinal(), index ->
+			{
+				buffs = buffOptions[index];
 				rebuild();
 			})));
 		controls.add(Cards.gap(8));
@@ -377,11 +397,21 @@ class BisTab extends JPanel
 	{
 		CombatStyle style = profile.getStyle();
 
+		// Prayers and potions do not scale every item evenly, so leaving them out can flip which item
+		// wins. Applied per style, since the sensible prayer and potion differ between them.
+		Boosts boosts = buffs.getBoosts();
+		CombatPrayer prayer = buffs.isPraying() ? CombatPrayer.bestFor(style) : CombatPrayer.NONE;
+
 		return CombatContext.builder()
 			.attackLevel(levels.getAttack())
 			.strengthLevel(levels.getStrength())
 			.rangedLevel(levels.getRanged())
 			.magicLevel(levels.getMagic())
+			.attackBoost(boosts.meleeBoost(levels.getAttack()))
+			.strengthBoost(boosts.meleeBoost(levels.getStrength()))
+			.rangedBoost(boosts.rangedBoost(levels.getRanged()))
+			.magicBoost(boosts.magicBoost(levels.getMagic()))
+			.prayer(prayer)
 			.style(style)
 			.equipment(EquipmentStats.builder().build())
 			.target(target == null ? Target.dummy() : target.toTarget())
@@ -761,6 +791,46 @@ class BisTab extends JPanel
 	 * Whether slayer helmet bonuses count. Defaults to reading the player's actual task, with manual
 	 * overrides for planning ahead.
 	 */
+	/**
+	 * Whether to score with prayers and potions active.
+	 * <p>
+	 * Defaults to both because that is how gear is actually used, and because scoring unbuffed can
+	 * rank items differently from every other DPS tool.
+	 */
+	private enum Buffs
+	{
+		NONE("Neither", Boosts.NONE, false),
+		POTION("Potion", Boosts.STANDARD, false),
+		POTION_AND_PRAYER("Both", Boosts.STANDARD, true);
+
+		private final String displayName;
+		private final Boosts boosts;
+		private final boolean praying;
+
+		Buffs(String displayName, Boosts boosts, boolean praying)
+		{
+			this.displayName = displayName;
+			this.boosts = boosts;
+			this.praying = praying;
+		}
+
+		Boosts getBoosts()
+		{
+			return boosts;
+		}
+
+		boolean isPraying()
+		{
+			return praying;
+		}
+
+		@Override
+		public String toString()
+		{
+			return displayName;
+		}
+	}
+
 	private enum SlayerChoice
 	{
 		AUTO("Auto"),

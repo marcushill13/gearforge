@@ -362,6 +362,47 @@ public class SetEffectRegistryTest
 			TOLERANCE);
 	}
 
+	@Test
+	public void meleeWeaponPassivesDoNothingForSpellsOrArrows()
+	{
+		// Reported from the wild: magic best-in-slot returned Emberlight against Yama, because its
+		// demonbane bonus was being applied to a spell cast while merely holding it.
+		List<GearItem> emberlight = Collections.singletonList(
+			piece(ItemID.EMBERLIGHT, EquipmentSlot.WEAPON));
+
+		assertEquals(1.70,
+			registry.evaluate(emberlight, CombatStyle.SLASH, DEMONIC, false).getDamageMultiplier(), TOLERANCE);
+		assertEquals(1.0,
+			registry.evaluate(emberlight, CombatStyle.MAGIC, DEMONIC, false).getDamageMultiplier(), TOLERANCE);
+		assertEquals(1.0,
+			registry.evaluate(emberlight, CombatStyle.RANGED, DEMONIC, false).getDamageMultiplier(), TOLERANCE);
+	}
+
+	@Test
+	public void theTwistedBowOnlyScalesItsOwnShots()
+	{
+		List<GearItem> tbow = Collections.singletonList(piece(ItemID.TWISTED_BOW, EquipmentSlot.WEAPON));
+		Target target = highMagic(false, 250);
+
+		assertTrue(registry.evaluate(tbow, CombatStyle.RANGED, target, false).getDamageMultiplier() > 1.0);
+		assertEquals(1.0,
+			registry.evaluate(tbow, CombatStyle.MAGIC, target, false).getDamageMultiplier(), TOLERANCE);
+		assertEquals(1.0,
+			registry.evaluate(tbow, CombatStyle.CRUSH, target, false).getDamageMultiplier(), TOLERANCE);
+	}
+
+	@Test
+	public void dragonbaneWeaponsOnlyCountOnTheirOwnStyle()
+	{
+		List<GearItem> lance = Collections.singletonList(
+			piece(ItemID.DRAGONHUNTER_LANCE, EquipmentSlot.WEAPON));
+
+		assertEquals(1.20,
+			registry.evaluate(lance, CombatStyle.STAB, DRACONIC, false).getDamageMultiplier(), TOLERANCE);
+		assertEquals(1.0,
+			registry.evaluate(lance, CombatStyle.MAGIC, DRACONIC, false).getDamageMultiplier(), TOLERANCE);
+	}
+
 	private static Target highMagic(boolean xerician, int magic)
 	{
 		return Target.builder()

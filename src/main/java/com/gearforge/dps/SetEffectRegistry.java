@@ -149,14 +149,15 @@ public class SetEffectRegistry
 		}
 
 		// Bane weapons stack multiplicatively on top of slayer and salve rather than replacing them.
-		accuracy *= baneAccuracy(ids, target, notes);
-		damage *= baneDamage(ids, target, notes);
+		accuracy *= baneAccuracy(ids, style, target, notes);
+		damage *= baneDamage(ids, style, target, notes);
 
 		double inquisitor = inquisitorMultiplier(ids, style, notes);
 		accuracy *= inquisitor;
 		damage *= inquisitor;
 
-		if (ids.contains(TWISTED_BOW))
+		// The twisted bow is a bow: its scaling applies to its own shots, not to spells.
+		if (style.isRanged() && ids.contains(TWISTED_BOW))
 		{
 			int magic = twistedBowMagic(target);
 			accuracy *= twistedBowScaling(magic, true);
@@ -174,30 +175,32 @@ public class SetEffectRegistry
 	 * Accuracy and damage differ for the dragon hunter crossbow (30% and 25%), which is why they are
 	 * computed separately rather than sharing one multiplier.
 	 */
-	private double baneAccuracy(Set<Integer> ids, Target target, List<String> notes)
+	private double baneAccuracy(Set<Integer> ids, CombatStyle style, Target target, List<String> notes)
 	{
 		if (target.hasAttribute(MonsterAttribute.DRAGON))
 		{
-			if (ids.contains(DRAGON_HUNTER_LANCE))
+			if (style.isMagic() && ids.contains(DRAGON_HUNTER_WAND))
 			{
-				notes.add("Dragon hunter lance: target is draconic");
-				return 1.20;
+				notes.add("Dragon hunter wand: target is draconic");
+				return 7.0 / 4.0;
 			}
 
-			if (ids.contains(DRAGON_HUNTER_CROSSBOW))
+			if (style.isRanged() && ids.contains(DRAGON_HUNTER_CROSSBOW))
 			{
 				notes.add("Dragon hunter crossbow: target is draconic");
 				return 1.30;
 			}
 
-			if (ids.contains(DRAGON_HUNTER_WAND))
+			if (style.isMelee() && ids.contains(DRAGON_HUNTER_LANCE))
 			{
-				notes.add("Dragon hunter wand: target is draconic");
-				return 7.0 / 4.0;
+				notes.add("Dragon hunter lance: target is draconic");
+				return 1.20;
 			}
 		}
 
-		if (target.hasAttribute(MonsterAttribute.DEMON))
+		// The demonbane weapons are all melee. Their passive belongs to their own attacks, so it must
+		// not inflate a spell cast while merely holding one.
+		if (style.isMelee() && target.hasAttribute(MonsterAttribute.DEMON))
 		{
 			if (ids.contains(ARCLIGHT) || ids.contains(EMBERLIGHT))
 			{
@@ -217,7 +220,9 @@ public class SetEffectRegistry
 		}
 
 		// Only the breaching partisan improves accuracy; the rest of the family is damage only.
-		if (target.hasAttribute(MonsterAttribute.KALPHITE) && ids.contains(ItemID.KERIS_PARTISAN_BREACH))
+		if (style.isMelee()
+			&& target.hasAttribute(MonsterAttribute.KALPHITE)
+			&& ids.contains(ItemID.KERIS_PARTISAN_BREACH))
 		{
 			notes.add("Keris partisan of breaching: target is a kalphite");
 			return 133.0 / 100.0;
@@ -226,24 +231,30 @@ public class SetEffectRegistry
 		return 1.0;
 	}
 
-	private double baneDamage(Set<Integer> ids, Target target, List<String> notes)
+	private double baneDamage(Set<Integer> ids, CombatStyle style, Target target, List<String> notes)
 	{
 		if (target.hasAttribute(MonsterAttribute.DRAGON))
 		{
-			if (ids.contains(DRAGON_HUNTER_LANCE))
+			if (style.isMelee() && ids.contains(DRAGON_HUNTER_LANCE))
 			{
 				return 1.20;
 			}
 
-			if (ids.contains(DRAGON_HUNTER_CROSSBOW))
+			if (style.isRanged() && ids.contains(DRAGON_HUNTER_CROSSBOW))
 			{
 				return 1.25;
 			}
 
-			if (ids.contains(DRAGON_HUNTER_WAND))
+			if (style.isMagic() && ids.contains(DRAGON_HUNTER_WAND))
 			{
 				return 7.0 / 5.0;
 			}
+		}
+
+		// Everything below is a melee weapon's own passive and does nothing for spells or arrows.
+		if (!style.isMelee())
+		{
+			return 1.0;
 		}
 
 		if (target.hasAttribute(MonsterAttribute.DEMON))

@@ -48,4 +48,22 @@ public enum CombatPrayer
 		this.rangedStrength = rangedStrength;
 		this.magic = magic;
 	}
+
+	/**
+	 * The strongest prayer for a style — what someone planning a trip would actually have on.
+	 */
+	public static CombatPrayer bestFor(CombatStyle style)
+	{
+		if (style.isRanged())
+		{
+			return RIGOUR;
+		}
+
+		if (style.isMagic())
+		{
+			return AUGURY;
+		}
+
+		return PIETY;
+	}
 }
