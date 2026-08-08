@@ -36,6 +36,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
@@ -64,6 +65,7 @@ import net.runelite.client.ui.FontManager;
 class SetupsTab extends JPanel
 {
 	private final ClientThread clientThread;
+	private final ScheduledExecutorService executor;
 	private final BankModel bankModel;
 	private final ItemStatEngine statEngine;
 	private final ItemCanonicalizer canonicalizer;
@@ -85,6 +87,7 @@ class SetupsTab extends JPanel
 	@Inject
 	private SetupsTab(
 		ClientThread clientThread,
+		ScheduledExecutorService executor,
 		BankModel bankModel,
 		ItemStatEngine statEngine,
 		ItemCanonicalizer canonicalizer,
@@ -96,6 +99,7 @@ class SetupsTab extends JPanel
 		ItemManager itemManager)
 	{
 		this.clientThread = clientThread;
+		this.executor = executor;
 		this.bankModel = bankModel;
 		this.statEngine = statEngine;
 		this.canonicalizer = canonicalizer;
@@ -275,28 +279,37 @@ class SetupsTab extends JPanel
 			return;
 		}
 
+		// Item names and levels need the client thread; the upgrade search does not. Running it there
+		// for every saved setup is part of what made gear swaps stutter.
 		clientThread.invoke(() ->
 		{
-			SetupsView view = buildView();
-			SwingUtilities.invokeLater(() -> render(view));
+			List<GearItem> ownedGear = bankModel.hasBankData()
+				? statEngine.resolveOwnedGear(bankModel)
+				: Collections.emptyList();
+			PlayerLevels levels = playerModel.snapshot();
+
+			executor.execute(() ->
+			{
+				SetupsView view = buildView(ownedGear, levels);
+				SwingUtilities.invokeLater(() -> render(view));
+			});
 		});
 	}
 
 	/**
-	 * Everything the panel needs, gathered on the client thread in one pass.
+	 * Everything the panel needs. Pure computation, so it is safe off the client thread.
 	 */
-	private SetupsView buildView()
+	private SetupsView buildView(List<GearItem> ownedGear, PlayerLevels levels)
 	{
 		SetupsView view = new SetupsView();
 
 		bankModel.ownedItems().forEach((id, owned) -> view.quantities.put(id, owned.getQuantity()));
 
-		if (!bankModel.hasBankData())
+		if (ownedGear.isEmpty())
 		{
 			return view;
 		}
 
-		List<GearItem> ownedGear = statEngine.resolveOwnedGear(bankModel);
 		view.worn.putAll(wornGear(ownedGear));
 
 		for (GearItem item : ownedGear)
@@ -304,7 +317,6 @@ class SetupsTab extends JPanel
 			view.names.put(item.getItemId(), item.getName());
 		}
 
-		PlayerLevels levels = playerModel.snapshot();
 		CombatContext template = CombatContext.builder()
 			.attackLevel(levels.getAttack())
 			.strengthLevel(levels.getStrength())

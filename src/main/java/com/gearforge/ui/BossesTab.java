@@ -27,6 +27,7 @@ import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ScheduledExecutorService;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
 import javax.inject.Singleton;
@@ -72,6 +73,7 @@ class BossesTab extends JPanel
 	private static final int SPELL_SPEED_TICKS = 5;
 
 	private final ClientThread clientThread;
+	private final ScheduledExecutorService executor;
 	private final BankModel bankModel;
 	private final ItemStatEngine statEngine;
 	private final PlayerModel playerModel;
@@ -96,6 +98,7 @@ class BossesTab extends JPanel
 	@Inject
 	private BossesTab(
 		ClientThread clientThread,
+		ScheduledExecutorService executor,
 		BankModel bankModel,
 		ItemStatEngine statEngine,
 		PlayerModel playerModel,
@@ -107,6 +110,7 @@ class BossesTab extends JPanel
 		ItemManager itemManager)
 	{
 		this.clientThread = clientThread;
+		this.executor = executor;
 		this.bankModel = bankModel;
 		this.statEngine = statEngine;
 		this.playerModel = playerModel;
@@ -262,30 +266,41 @@ class BossesTab extends JPanel
 		clientThread.invoke(() ->
 		{
 			PlayerLevels levels = playerModel.snapshot();
-			List<GearItem> owned = usableGear(statEngine.resolveOwnedGear(bankModel), levels);
-			Target target = monster.toTarget();
+			List<GearItem> resolved = statEngine.resolveOwnedGear(bankModel);
 
-			// Only count slayer bonuses when the player actually has a task and this is something a
-			// slayer master assigns — assuming either way skews the numbers.
-			boolean onTask = levels.isOnSlayerTask() && monster.isSlayerMonster();
-
-			List<ScoredSetup> byStyle = new ArrayList<>();
-			List<CombatStyle> styleOf = new ArrayList<>();
-
-			for (CombatStyle style : STYLES)
-			{
-				List<ScoredSetup> best = dpsOptimizer.best(
-					owned, contextFor(style, levels, target), onTask, 1);
-
-				if (!best.isEmpty())
-				{
-					byStyle.add(best.get(0));
-					styleOf.add(style);
-				}
-			}
-
-			SwingUtilities.invokeLater(() -> renderResult(monster, byStyle, styleOf, onTask));
+			// Five beam searches follow. They must not run on the game thread.
+			executor.execute(() -> race(monster, resolved, levels));
 		});
+	}
+
+	/**
+	 * Races every combat style against the boss. Pure computation, deliberately off the game thread.
+	 */
+	private void race(Monster monster, List<GearItem> resolved, PlayerLevels levels)
+	{
+		List<GearItem> owned = usableGear(resolved, levels);
+		Target target = monster.toTarget();
+
+		// Only count slayer bonuses when the player actually has a task and this is something a
+		// slayer master assigns — assuming either way skews the numbers.
+		boolean onTask = levels.isOnSlayerTask() && monster.isSlayerMonster();
+
+		List<ScoredSetup> byStyle = new ArrayList<>();
+		List<CombatStyle> styleOf = new ArrayList<>();
+
+		for (CombatStyle style : STYLES)
+		{
+			List<ScoredSetup> best = dpsOptimizer.best(
+				owned, contextFor(style, levels, target), onTask, 1);
+
+			if (!best.isEmpty())
+			{
+				byStyle.add(best.get(0));
+				styleOf.add(style);
+			}
+		}
+
+		SwingUtilities.invokeLater(() -> renderResult(monster, byStyle, styleOf, onTask));
 	}
 
 	private List<GearItem> usableGear(List<GearItem> owned, PlayerLevels levels)

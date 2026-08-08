@@ -4,6 +4,8 @@ import com.gearforge.data.BankModel;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.GridLayout;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import javax.inject.Inject;
 import javax.inject.Singleton;
@@ -25,16 +27,32 @@ import net.runelite.client.ui.components.materialtabs.MaterialTabGroup;
 @Singleton
 public class GearForgePanel extends PluginPanel
 {
+	/**
+	 * Gear changes arrive in bursts — swapping a set fires an event per item. Coalescing them stops
+	 * each one kicking off its own recomputation.
+	 */
+	private static final long REFRESH_DELAY_MS = 400;
+
 	private final BankModel bankModel;
+	private final ScheduledExecutorService executor;
 	private final SetupsTab setupsTab;
 	private final SlotsTab slotsTab;
 	private final BisTab bisTab;
 	private final BossesTab bossesTab;
 	private final JLabel staleness = new JLabel();
 
+	/** The tab currently on screen. Only this one is ever recomputed. */
+	private Runnable activeRebuild;
+
+	/** Whether the sidebar is actually open. Nothing is computed while it is closed. */
+	private volatile boolean visible;
+
+	private ScheduledFuture<?> pendingRefresh;
+
 	@Inject
 	private GearForgePanel(
 		BankModel bankModel,
+		ScheduledExecutorService executor,
 		SetupsTab setupsTab,
 		SlotsTab slotsTab,
 		BisTab bisTab,
@@ -42,6 +60,7 @@ public class GearForgePanel extends PluginPanel
 	{
 		super(false);
 		this.bankModel = bankModel;
+		this.executor = executor;
 		this.setupsTab = setupsTab;
 		this.slotsTab = slotsTab;
 		this.bisTab = bisTab;
@@ -73,10 +92,19 @@ public class GearForgePanel extends PluginPanel
 		MaterialTab slots = new MaterialTab("Search", tabGroup, slotsTab);
 		MaterialTab bis = new MaterialTab("BiS", tabGroup, bisTab);
 		MaterialTab bosses = new MaterialTab("Bosses", tabGroup, bossesTab);
+		// Recompute only the tab being looked at, and only when it is switched to. Rebuilding all four
+		// on every gear change is what made the client stutter.
+		trackSelection(setups, setupsTab::rebuild);
+		trackSelection(slots, slotsTab::rebuild);
+		trackSelection(bis, bisTab::rebuild);
+		trackSelection(bosses, bossesTab::rebuild);
+
 		tabGroup.addTab(setups);
 		tabGroup.addTab(slots);
 		tabGroup.addTab(bis);
 		tabGroup.addTab(bosses);
+
+		activeRebuild = setupsTab::rebuild;
 		tabGroup.select(setups);
 
 		JPanel top = new JPanel();
@@ -113,15 +141,82 @@ public class GearForgePanel extends PluginPanel
 	}
 
 	/**
-	 * Rebuilds everything from the current gear data.
+	 * Notes which tab is on screen so only that one is recomputed.
+	 */
+	private void trackSelection(MaterialTab tab, Runnable rebuild)
+	{
+		tab.setOnSelectEvent(() ->
+		{
+			activeRebuild = rebuild;
+			rebuild.run();
+			return true;
+		});
+	}
+
+	@Override
+	public void onActivate()
+	{
+		visible = true;
+		refresh();
+	}
+
+	@Override
+	public void onDeactivate()
+	{
+		visible = false;
+		cancelPendingRefresh();
+	}
+
+	/**
+	 * Asks for a recomputation of the visible tab.
+	 * <p>
+	 * Debounced and dropped entirely while the sidebar is closed. Callers include equipment and
+	 * inventory container events, which fire on the game thread several times per gear swap, so this
+	 * must stay cheap — the actual work happens later and off that thread.
 	 */
 	public void refresh()
 	{
+		if (!visible)
+		{
+			return;
+		}
+
 		SwingUtilities.invokeLater(this::updateStaleness);
-		setupsTab.rebuild();
-		slotsTab.rebuild();
-		bisTab.rebuild();
-		bossesTab.rebuild();
+
+		synchronized (this)
+		{
+			cancelPendingRefresh();
+			Runnable rebuild = activeRebuild;
+			pendingRefresh = executor.schedule(
+				() -> SwingUtilities.invokeLater(rebuild), REFRESH_DELAY_MS, TimeUnit.MILLISECONDS);
+		}
+	}
+
+	/**
+	 * Rebuilds immediately, for user actions where waiting would feel broken.
+	 */
+	public void refreshNow()
+	{
+		SwingUtilities.invokeLater(this::updateStaleness);
+		SwingUtilities.invokeLater(activeRebuild);
+	}
+
+	private synchronized void cancelPendingRefresh()
+	{
+		if (pendingRefresh != null)
+		{
+			pendingRefresh.cancel(false);
+			pendingRefresh = null;
+		}
+	}
+
+	/**
+	 * Cancels outstanding work so a shut-down plugin leaves nothing scheduled.
+	 */
+	public void shutDown()
+	{
+		visible = false;
+		cancelPendingRefresh();
 	}
 
 	private void updateStaleness()

@@ -91,6 +91,7 @@ public class GearForgePlugin extends Plugin
 	@Override
 	protected void shutDown()
 	{
+		panel.shutDown();
 		bankFilterService.unregister();
 		overlayManager.remove(bankHighlighter);
 		clientToolbar.removeNavigation(navButton);

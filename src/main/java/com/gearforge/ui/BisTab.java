@@ -31,6 +31,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ScheduledExecutorService;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
 import javax.inject.Singleton;
@@ -67,6 +68,7 @@ class BisTab extends JPanel
 	private static final int SPELL_SPEED_TICKS = 5;
 
 	private final ClientThread clientThread;
+	private final ScheduledExecutorService executor;
 	private final BankModel bankModel;
 	private final ItemStatEngine statEngine;
 	private final PlayerModel playerModel;
@@ -111,6 +113,7 @@ class BisTab extends JPanel
 	@Inject
 	private BisTab(
 		ClientThread clientThread,
+		ScheduledExecutorService executor,
 		BankModel bankModel,
 		ItemStatEngine statEngine,
 		PlayerModel playerModel,
@@ -123,6 +126,7 @@ class BisTab extends JPanel
 		ItemManager itemManager)
 	{
 		this.clientThread = clientThread;
+		this.executor = executor;
 		this.bankModel = bankModel;
 		this.statEngine = statEngine;
 		this.playerModel = playerModel;
@@ -300,39 +304,56 @@ class BisTab extends JPanel
 			}
 
 			PlayerLevels levels = playerModel.snapshot();
-			boolean slayerTask = slayer.resolve(levels.isOnSlayerTask());
-
 			List<GearItem> owned = statEngine.resolveOwnedGear(bankModel);
-			List<GearItem> pooled = pool == GearPool.USABLE ? onlyEquippable(owned, levels) : owned;
 
-			if (profile == Profile.ALL_STYLES)
-			{
-				Map<CombatStyle, ScoredSetup> byStyle = new LinkedHashMap<>();
-				for (CombatStyle style : OFFENSIVE_STYLES)
-				{
-					List<ScoredSetup> best = dpsOptimizer.best(
-						pooled, contextFor(Profile.forStyle(style), levels, target), slayerTask, 1);
+			// Only the two lookups above need the client: item names come from the item cache and
+			// levels from the client. The search itself is pure computation and moves off the game
+			// thread — running a beam search there froze the client on every gear swap.
+			executor.execute(() -> optimise(owned, levels, profile, pool, slayer, target));
+		});
+	}
 
-					if (!best.isEmpty())
-					{
-						byStyle.put(style, best.get(0));
-					}
-				}
+	/**
+	 * The expensive half. Runs on a background thread, never on the client thread or the EDT.
+	 */
+	private void optimise(
+		List<GearItem> owned,
+		PlayerLevels levels,
+		Profile profile,
+		GearPool pool,
+		SlayerChoice slayer,
+		@Nullable Monster target)
+	{
+		boolean slayerTask = slayer.resolve(levels.isOnSlayerTask());
+		List<GearItem> pooled = pool == GearPool.USABLE ? onlyEquippable(owned, levels) : owned;
 
-				SwingUtilities.invokeLater(() -> renderAllStyles(byStyle, target));
-			}
-			else if (profile.isOffensive())
+		if (profile == Profile.ALL_STYLES)
+		{
+			Map<CombatStyle, ScoredSetup> byStyle = new LinkedHashMap<>();
+			for (CombatStyle style : OFFENSIVE_STYLES)
 			{
 				List<ScoredSetup> best = dpsOptimizer.best(
-					pooled, contextFor(profile, levels, target), slayerTask, 3);
-				SwingUtilities.invokeLater(() -> renderOffensive(best, profile, pool, target));
+					pooled, contextFor(Profile.forStyle(style), levels, target), slayerTask, 1);
+
+				if (!best.isEmpty())
+				{
+					byStyle.put(style, best.get(0));
+				}
 			}
-			else
-			{
-				OptimizerResult best = greedyOptimizer.best(pooled, profile.getStat());
-				SwingUtilities.invokeLater(() -> renderDefensive(best, profile, pool));
-			}
-		});
+
+			SwingUtilities.invokeLater(() -> renderAllStyles(byStyle, target));
+		}
+		else if (profile.isOffensive())
+		{
+			List<ScoredSetup> best = dpsOptimizer.best(
+				pooled, contextFor(profile, levels, target), slayerTask, 3);
+			SwingUtilities.invokeLater(() -> renderOffensive(best, profile, pool, target));
+		}
+		else
+		{
+			OptimizerResult best = greedyOptimizer.best(pooled, profile.getStat());
+			SwingUtilities.invokeLater(() -> renderDefensive(best, profile, pool));
+		}
 	}
 
 	private List<GearItem> onlyEquippable(List<GearItem> owned, PlayerLevels levels)
