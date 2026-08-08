@@ -229,8 +229,11 @@ final class Cards
 
 		JButton header = button(title + "   +");
 		header.setHorizontalAlignment(SwingConstants.LEFT);
-		header.setIconTextGap(6);
-		header.setMaximumSize(new Dimension(Integer.MAX_VALUE, 26));
+		header.setIconTextGap(8);
+		// Tall enough that a skill icon sits in the row rather than being clipped by it.
+		header.setBorder(BorderFactory.createEmptyBorder(5, 6, 5, 6));
+		header.setPreferredSize(new Dimension(0, 30));
+		header.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
 		decorate.accept(header);
 
 		content.setVisible(false);

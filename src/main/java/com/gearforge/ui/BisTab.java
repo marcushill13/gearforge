@@ -347,7 +347,7 @@ class BisTab extends JPanel
 			header -> spriteManager.addSpriteTo(header, SpriteID.Staticons.PRAYER, 0)));
 		controls.add(Cards.gap(6));
 		controls.add(Cards.expandable("Boosts", buildBoostList(),
-			header -> itemManager.getImage(Potion.SUPER_COMBAT.getItemId()).addTo(header)));
+			header -> spriteManager.addSpriteTo(header, SpriteID.Staticons.HERBLORE, 0)));
 		controls.add(Cards.gap(8));
 
 		targetSearch.setFont(FontManager.getRunescapeSmallFont());
