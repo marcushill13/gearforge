@@ -288,23 +288,55 @@ class SetupsTab extends JPanel
 				? statEngine.resolveOwnedGear(bankModel)
 				: Collections.emptyList();
 			PlayerLevels levels = playerModel.snapshot();
+			Map<Integer, String> inventoryNames = resolveInventoryNames();
 
 			executor.execute(() ->
 			{
-				SetupsView view = buildView(ownedGear, levels);
+				SetupsView view = buildView(ownedGear, levels, inventoryNames);
 				SwingUtilities.invokeLater(() -> render(view));
 			});
 		});
 	}
 
 	/**
+	 * Names for every item a saved setup carries in its inventory.
+	 * <p>
+	 * Must run on the client thread. An inventory holds things that are not equipment — logs, seeds,
+	 * runes — so their names cannot come from the resolved gear list and have to be looked up here,
+	 * before the rest of the view is built off-thread.
+	 */
+	private Map<Integer, String> resolveInventoryNames()
+	{
+		Map<Integer, String> names = new HashMap<>();
+
+		for (Setup setup : setupStore.all())
+		{
+			for (ItemRequirement requirement : setup.getInventory())
+			{
+				if (requirement != null)
+				{
+					names.computeIfAbsent(requirement.getItemId(),
+						id -> itemManager.getItemComposition(id).getName());
+				}
+			}
+		}
+
+		return names;
+	}
+
+	/**
 	 * Everything the panel needs. Pure computation, so it is safe off the client thread.
 	 */
-	private SetupsView buildView(List<GearItem> ownedGear, PlayerLevels levels)
+	private SetupsView buildView(
+		List<GearItem> ownedGear, PlayerLevels levels, Map<Integer, String> inventoryNames)
 	{
 		SetupsView view = new SetupsView();
 
 		bankModel.ownedItems().forEach((id, owned) -> view.quantities.put(id, owned.getQuantity()));
+
+		// Before the early return: a setup's inventory should still read as item names when there is no
+		// bank data to resolve gear from.
+		view.names.putAll(inventoryNames);
 
 		if (ownedGear.isEmpty())
 		{
@@ -335,15 +367,6 @@ class SetupsTab extends JPanel
 		{
 			view.inventoryStatuses.put(setup.getId(),
 				SetupValidator.validateInventory(setup, view.quantities, canonicalizer::variantGroup));
-
-			for (ItemRequirement requirement : setup.getInventory())
-			{
-				if (requirement != null && !view.names.containsKey(requirement.getItemId()))
-				{
-					view.names.put(requirement.getItemId(),
-						itemManager.getItemComposition(requirement.getItemId()).getName());
-				}
-			}
 
 			Map<EquipmentSlot, UpgradeSuggestion> bySlot = new EnumMap<>(EquipmentSlot.class);
 			for (UpgradeSuggestion suggestion : upgradeFinder.find(setup, ownedGear, template))
