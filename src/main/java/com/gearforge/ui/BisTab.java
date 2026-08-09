@@ -135,6 +135,9 @@ class BisTab extends JPanel
 	/** The weapon currently being looked at, or null for none. */
 	private SpecialAttack inspectedSpec;
 
+	/** Whether the spec section is open, carried across the rebuilds a gear change causes. */
+	private boolean specSectionOpen;
+
 	/** The last scored specs, kept so typing in the search can refilter without recomputing. */
 	private List<SpecSuggestion> shownSpecs = Collections.emptyList();
 
@@ -385,7 +388,6 @@ class BisTab extends JPanel
 		controls.add(Cards.gap(6));
 		controls.add(Cards.expandable("Boosts", buildBoostList(),
 			header -> spriteManager.addSpriteTo(header, SpriteID.Staticons.HERBLORE, 0)));
-		controls.add(Cards.gap(6));
 		specContent.setLayout(new BoxLayout(specContent, BoxLayout.Y_AXIS));
 		specContent.setBackground(ColorScheme.DARK_GRAY_COLOR);
 		specSearch.addKeyListener(new java.awt.event.KeyAdapter()
@@ -409,9 +411,6 @@ class BisTab extends JPanel
 		});
 		// Populate the picker up front; it was previously only filled on a keystroke, so it started empty.
 		refillSpecPicker();
-
-		controls.add(Cards.expandable("Spec weapon", specContent,
-			header -> spriteManager.addSpriteTo(header, SpriteID.Staticons.ATTACK, 0)));
 		controls.add(Cards.gap(8));
 
 		targetSearch.setFont(FontManager.getRunescapeSmallFont());
@@ -567,26 +566,7 @@ class BisTab extends JPanel
 				}
 			}
 
-			// Scored against the winning style's setup: the overview is where people look first, and a
-			// spec weapon is a question about the whole trip rather than about one style.
-			CombatStyle bestStyle = null;
-			ScoredSetup bestSetup = null;
-			for (Map.Entry<CombatStyle, ScoredSetup> entry : byStyle.entrySet())
-			{
-				if (bestSetup == null
-					|| entry.getValue().getScore().getDps() > bestSetup.getScore().getDps())
-				{
-					bestStyle = entry.getKey();
-					bestSetup = entry.getValue();
-				}
-			}
-
-			List<SpecSuggestion> specs = bestSetup == null
-				? Collections.emptyList()
-				: specsFor(Collections.singletonList(bestSetup), everySpecWeapon,
-					contextFor(Profile.forStyle(bestStyle), levels, target, prayer, potion));
-
-			SwingUtilities.invokeLater(() -> renderAllStyles(byStyle, specs, target));
+			SwingUtilities.invokeLater(() -> renderAllStyles(byStyle, target));
 		}
 		else if (profile.isOffensive())
 		{
@@ -656,11 +636,9 @@ class BisTab extends JPanel
 	 * Deliberately shows the gear and lets DPS be the ranking, rather than presenting a single number
 	 * the player has to configure their way towards.
 	 */
-	private void renderAllStyles(
-		Map<CombatStyle, ScoredSetup> byStyle, List<SpecSuggestion> specs, @Nullable Monster target)
+	private void renderAllStyles(Map<CombatStyle, ScoredSetup> byStyle, @Nullable Monster target)
 	{
 		results.removeAll();
-		showSpecs(specs);
 
 		if (byStyle.isEmpty())
 		{
@@ -1016,8 +994,6 @@ class BisTab extends JPanel
 		@Nullable Monster target)
 	{
 		results.removeAll();
-		showSpecs(specs);
-
 		if (best.isEmpty())
 		{
 			showMessage("Nothing in this gear pool can attack with " + profile.toString().toLowerCase()
@@ -1044,6 +1020,15 @@ class BisTab extends JPanel
 		addSection("Why", reasons);
 
 		addSetup(top.getSetup());
+
+		// The spec belongs with the setup it is scored against, not up in the controls: swap a piece of
+		// gear and the right spec weapon can change with it.
+		showSpecs(specs);
+		results.add(Cards.gap(8));
+		results.add(Cards.expandable("Spec weapon", specContent,
+			header -> spriteManager.addSpriteTo(header, SpriteID.Staticons.ATTACK, 0),
+			specSectionOpen,
+			open -> specSectionOpen = open));
 
 
 		if (best.size() > 1)
