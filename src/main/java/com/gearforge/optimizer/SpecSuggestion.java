@@ -30,6 +30,15 @@ public final class SpecSuggestion
 		this.note = note;
 	}
 
+	/**
+	 * Whether the weapon is actually in the player's bank. Unowned weapons are scored too, so the
+	 * panel can answer "would this be worth buying" — but it has to say which is which.
+	 */
+	public boolean isOwned()
+	{
+		return weapon.getLocations() != null && !weapon.getLocations().isEmpty();
+	}
+
 	public SpecialAttack getSpecial()
 	{
 		return special;

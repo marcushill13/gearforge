@@ -12,6 +12,7 @@ import com.gearforge.data.Monster;
 import com.gearforge.data.MonsterRepository;
 import com.gearforge.data.PlayerLevels;
 import com.gearforge.data.PlayerModel;
+import com.gearforge.data.Storage;
 import com.gearforge.dps.CombatContext;
 import com.gearforge.dps.CombatPrayer;
 import com.gearforge.dps.CombatStyle;
@@ -36,6 +37,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.EnumMap;
+import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -117,6 +119,12 @@ class BisTab extends JPanel
 	 * of the results, so the three things you can open are in one place.
 	 */
 	private final JPanel specContent = new JPanel();
+
+	/** Filters the spec list by name. Forty-five weapons is too many to scroll for one. */
+	private final JTextField specSearch = new JTextField();
+
+	/** The last scored specs, kept so typing in the search can refilter without recomputing. */
+	private List<SpecSuggestion> shownSpecs = Collections.emptyList();
 
 	private GearPool pool = GearPool.USABLE;
 
@@ -368,6 +376,14 @@ class BisTab extends JPanel
 		controls.add(Cards.gap(6));
 		specContent.setLayout(new BoxLayout(specContent, BoxLayout.Y_AXIS));
 		specContent.setBackground(ColorScheme.DARK_GRAY_COLOR);
+		specSearch.addKeyListener(new java.awt.event.KeyAdapter()
+		{
+			@Override
+			public void keyReleased(java.awt.event.KeyEvent event)
+			{
+				showSpecs(shownSpecs);
+			}
+		});
 		controls.add(Cards.expandable("Spec weapon", specContent,
 			header -> spriteManager.addSpriteTo(header, SpriteID.Staticons.ATTACK, 0)));
 		controls.add(Cards.gap(8));
@@ -483,12 +499,14 @@ class BisTab extends JPanel
 
 			PlayerLevels levels = playerModel.snapshot();
 			List<GearItem> owned = statEngine.resolveOwnedGear(bankModel);
+			List<GearItem> everySpecWeapon = allSpecWeapons();
 
 			// Only the two lookups above need the client: item names come from the item cache and
 			// levels from the client. The search itself is pure computation and moves off the game
 			// thread — running a beam search there froze the client on every gear swap.
 			executor.execute(() ->
-				optimise(owned, levels, profile, pool, slayer, target, chosenPrayer, chosenPotion));
+				optimise(owned, everySpecWeapon, levels, profile, pool, slayer, target,
+					chosenPrayer, chosenPotion));
 		});
 	}
 
@@ -497,6 +515,7 @@ class BisTab extends JPanel
 	 */
 	private void optimise(
 		List<GearItem> owned,
+		List<GearItem> everySpecWeapon,
 		PlayerLevels levels,
 		Profile profile,
 		GearPool pool,
@@ -538,7 +557,7 @@ class BisTab extends JPanel
 
 			List<SpecSuggestion> specs = bestSetup == null
 				? Collections.emptyList()
-				: specsFor(Collections.singletonList(bestSetup), pooled,
+				: specsFor(Collections.singletonList(bestSetup), everySpecWeapon,
 					contextFor(Profile.forStyle(bestStyle), levels, target, prayer, potion));
 
 			SwingUtilities.invokeLater(() -> renderAllStyles(byStyle, specs, target));
@@ -547,7 +566,7 @@ class BisTab extends JPanel
 		{
 			CombatContext context = contextFor(profile, levels, target, prayer, potion);
 			List<ScoredSetup> best = dpsOptimizer.best(pooled, context, slayerTask, 3);
-			List<SpecSuggestion> specs = specsFor(best, pooled, context);
+			List<SpecSuggestion> specs = specsFor(best, everySpecWeapon, context);
 			SwingUtilities.invokeLater(() -> renderOffensive(best, specs, profile, pool, target));
 		}
 		else
@@ -688,6 +707,39 @@ class BisTab extends JPanel
 	}
 
 	/**
+	 * Every special attack weapon in the game, with its stats, whether or not it is owned.
+	 * <p>
+	 * Must run on the client thread. Scoring the ones you do not have is the point of the search: the
+	 * question "would claws actually beat my voidwaker here" is worth answering before spending the
+	 * money, not after.
+	 */
+	private List<GearItem> allSpecWeapons()
+	{
+		List<GearItem> weapons = new ArrayList<>();
+		Map<Integer, BankModel.OwnedQuantity> owned = bankModel.ownedItems();
+
+		for (SpecialAttack special : SpecialAttack.values())
+		{
+			EquipmentStats stats = statEngine.statsFor(special.getItemId());
+			if (stats == null)
+			{
+				continue;
+			}
+
+			weapons.add(new GearItem(
+				special.getItemId(),
+				special.getDisplayName(),
+				1,
+				stats,
+				owned.containsKey(special.getItemId())
+					? EnumSet.of(Storage.BANK)
+					: EnumSet.noneOf(Storage.class)));
+		}
+
+		return weapons;
+	}
+
+	/**
 	 * Scores the spec weapons against the setup that just won, rather than against bare stats — the
 	 * whole point being that your body slot's strength bonus changes what the claws hit for.
 	 */
@@ -724,10 +776,38 @@ class BisTab extends JPanel
 	 */
 	private void showSpecs(List<SpecSuggestion> specs)
 	{
+		shownSpecs = specs;
+
 		specContent.removeAll();
-		specContent.add(specList(specs));
+		specContent.add(Cards.field("Find a spec weapon", specSearch));
+		specContent.add(Cards.gap(4));
+		specContent.add(specList(matching(specs)));
 		specContent.revalidate();
 		specContent.repaint();
+	}
+
+	/**
+	 * Filters by name. Matching on the weapon rather than the enum so that "bow" finds the dark bow and
+	 * the webweaver alike.
+	 */
+	private List<SpecSuggestion> matching(List<SpecSuggestion> specs)
+	{
+		String needle = specSearch.getText().trim().toLowerCase();
+		if (needle.isEmpty())
+		{
+			return specs;
+		}
+
+		List<SpecSuggestion> matches = new ArrayList<>();
+		for (SpecSuggestion suggestion : specs)
+		{
+			if (suggestion.getSpecial().getDisplayName().toLowerCase().contains(needle))
+			{
+				matches.add(suggestion);
+			}
+		}
+
+		return matches;
 	}
 
 	private JPanel specList(List<SpecSuggestion> specs)
@@ -739,9 +819,9 @@ class BisTab extends JPanel
 
 		if (specs.isEmpty())
 		{
-			list.add(Cards.muted("Nothing you can equip has a special attack GearForge scores yet."));
-			list.add(Cards.gap(4));
-			list.add(Cards.muted("It looks for: " + knownSpecWeapons() + "."));
+			list.add(Cards.muted(specSearch.getText().trim().isEmpty()
+				? "No special attack weapons could be scored against this target."
+				: "No spec weapon matches that."));
 			return list;
 		}
 
@@ -783,6 +863,11 @@ class BisTab extends JPanel
 				: "—");
 			added.setFont(FontManager.getRunescapeBoldFont());
 			added.setForeground(worthwhile ? ColorScheme.BRAND_ORANGE : Cards.mutedColor());
+
+			if (!suggestion.isOwned())
+			{
+				text.add(Cards.muted("Not in your bank"));
+			}
 			row.add(added, BorderLayout.EAST);
 
 			row.setMaximumSize(new Dimension(Integer.MAX_VALUE, row.getPreferredSize().height));
@@ -792,7 +877,8 @@ class BisTab extends JPanel
 
 		boolean anyWorthwhile = specs.get(0).getDamageAdded() >= 1;
 		list.add(Cards.muted(anyWorthwhile
-			? "Damage each spec adds to the kill, using the setup above."
+			? "Damage each spec adds to the kill, using the setup above. Weapons you do not own are "
+				+ "scored too, so you can see what one would be worth before buying it."
 			: "None of these beat just attacking this target. An accuracy special adds nothing to "
 				+ "something you already rarely miss — try a tougher target."));
 		return list;
