@@ -117,7 +117,47 @@ public enum SpecialAttack
 	DARKLIGHT("Darklight", 50, Shape.DEFENCE_REDUCTION, ItemID.DARKLIGHT, 1.0, 1.0, 0.05),
 
 	/** Sweep, mechanically identical to the dragon halberd's. */
-	CRYSTAL_HALBERD("Crystal halberd", 30, Shape.SWEEP, ItemID.CRYSTAL_HALBERD, 1.0, 1.1);
+	CRYSTAL_HALBERD("Crystal halberd", 30, Shape.SWEEP, ItemID.CRYSTAL_HALBERD, 1.0, 1.1),
+
+	/** Fang's special rolls at +50% accuracy; its damage band is unchanged. */
+	OSMUMTENS_FANG("Osmumten's fang", 25, Shape.SINGLE_HIT, ItemID.OSMUMTENS_FANG, 1.5, 1.0),
+
+	/** +50% accuracy and +50% damage. */
+	ARKAN_BLADE("Arkan blade", 30, Shape.SINGLE_HIT, ItemID.ARKAN_BLADE, 1.5, 1.5),
+
+	/** +50% accuracy. */
+	GRANITE_HAMMER("Granite hammer", 60, Shape.SINGLE_HIT, ItemID.GRANITE_HAMMER, 1.5, 1.0),
+
+	/** Doubled accuracy for one hit. */
+	BRINE_SABRE("Brine sabre", 75, Shape.SINGLE_HIT, ItemID.OLAF2_BRINE_SABRE, 2.0, 1.0),
+
+	/** Doubled accuracy and +10% damage. */
+	BARRELCHEST_ANCHOR("Barrelchest anchor", 50, Shape.SINGLE_HIT, ItemID.BRAIN_ANCHOR, 2.0, 1.1),
+
+	/** +25% accuracy and +25% damage. */
+	DRAGON_SWORD("Dragon sword", 40, Shape.SINGLE_HIT, ItemID.DRAGON_SHORTSWORD, 1.25, 1.25),
+
+	/** +25% damage. */
+	SARADOMINS_BLESSED_SWORD("Saradomin's blessed sword", 65, Shape.SINGLE_HIT,
+		ItemID.BLESSED_SARADOMIN_SWORD_DEGRADED, 1.0, 1.25),
+
+	/** +10% damage, at the price of the whole bar. */
+	SARADOMIN_SWORD("Saradomin sword", 100, Shape.SINGLE_HIT, ItemID.SARADOMIN_SWORD, 1.0, 1.1),
+
+	/** A godsword: doubled accuracy and the shared +10% damage. */
+	ANCIENT_GODSWORD("Ancient godsword", 50, Shape.SINGLE_HIT, ItemID.ANCIENT_GODSWORD, 2.0, 1.1),
+
+	/** Demonbane, and a godsword-style accuracy boost on its special. */
+	EMBERLIGHT("Emberlight", 50, Shape.SINGLE_HIT, ItemID.EMBERLIGHT, 1.5, 1.0),
+
+	/** Three hits in quick succession. */
+	BURNING_CLAWS("Burning claws", 35, Shape.CASCADE, ItemID.BONE_CLAWS),
+
+	/** Two hits. */
+	DUAL_MACUAHUITL("Dual macuahuitl", 25, Shape.TWO_HITS, ItemID.DUAL_MACUAHUITL, 1.0, 1.0),
+
+	/** Demonbane, +50% accuracy on the special. */
+	SUNSPEAR("Sunspear", 50, Shape.SINGLE_HIT, ItemID.SUNSPEAR, 1.5, 1.0);
 
 	/**
 	 * How the spec's damage is shaped. Each needs its own distribution; none of them is a multiplier

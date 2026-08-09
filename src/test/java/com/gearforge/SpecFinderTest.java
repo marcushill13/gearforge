@@ -17,6 +17,7 @@ import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import net.runelite.api.gameval.ItemID;
 import org.junit.Test;
 
@@ -253,5 +254,42 @@ public class SpecFinderTest
 	{
 		assertNull(SpecialAttack.forItem(ItemID.RUNE_SCIMITAR));
 		assertNull(SpecialAttack.forItem(ItemID.SHARK));
+	}
+
+	/**
+	 * Every modelled special is a melee one, and the evaluator picks its attack style from stab, slash
+	 * and crush only. Adding a ranged or magic spec without teaching it the other styles would score
+	 * that weapon as though it were a sword — silently, and badly.
+	 * <p>
+	 * The list below is written out deliberately rather than derived from the enum, so that adding a
+	 * constant fails this test instead of quietly extending it.
+	 */
+	@Test
+	public void everyModelledSpecialIsMelee()
+	{
+		Set<SpecialAttack> melee = EnumSet.of(
+			SpecialAttack.DRAGON_CLAWS, SpecialAttack.VOIDWAKER,
+			SpecialAttack.ARMADYL_GODSWORD, SpecialAttack.BANDOS_GODSWORD,
+			SpecialAttack.SARADOMIN_GODSWORD, SpecialAttack.ZAMORAK_GODSWORD,
+			SpecialAttack.DRAGON_DAGGER, SpecialAttack.ABYSSAL_DAGGER,
+			SpecialAttack.DRAGON_WARHAMMER, SpecialAttack.ELDER_MAUL,
+			SpecialAttack.DRAGON_SCIMITAR, SpecialAttack.ABYSSAL_WHIP,
+			SpecialAttack.DRAGON_LONGSWORD, SpecialAttack.DRAGON_MACE,
+			SpecialAttack.DRAGON_HALBERD, SpecialAttack.GRANITE_MAUL,
+			SpecialAttack.ARCLIGHT, SpecialAttack.DARKLIGHT,
+			SpecialAttack.CRYSTAL_HALBERD, SpecialAttack.OSMUMTENS_FANG,
+			SpecialAttack.ARKAN_BLADE, SpecialAttack.GRANITE_HAMMER,
+			SpecialAttack.BRINE_SABRE, SpecialAttack.BARRELCHEST_ANCHOR,
+			SpecialAttack.DRAGON_SWORD, SpecialAttack.SARADOMINS_BLESSED_SWORD,
+			SpecialAttack.SARADOMIN_SWORD, SpecialAttack.ANCIENT_GODSWORD,
+			SpecialAttack.EMBERLIGHT, SpecialAttack.BURNING_CLAWS,
+			SpecialAttack.DUAL_MACUAHUITL, SpecialAttack.SUNSPEAR);
+
+		for (SpecialAttack special : SpecialAttack.values())
+		{
+			assertTrue(special + " is not in the melee list. SpecFinder picks an attack style from stab, "
+					+ "slash and crush only, so a ranged or magic special would be scored as a sword.",
+				melee.contains(special));
+		}
 	}
 }
