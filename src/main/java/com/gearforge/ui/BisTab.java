@@ -120,8 +120,11 @@ class BisTab extends JPanel
 	 */
 	private final JPanel specContent = new JPanel();
 
-	/** How many owned spec weapons the recommendation shows before it stops being a recommendation. */
-	private static final int SPECS_SHOWN = 4;
+	/** How many spec weapons the recommendation shows before it stops being a recommendation. */
+	private static final int SPECS_SHOWN = 3;
+
+	/** Below this a special adds nothing worth swapping weapons for. */
+	private static final double SPEC_WORTH_USING = 1.0;
 
 	/** Narrows the picker below it. Fifty-five weapons is far too many to scroll through. */
 	private final JTextField specSearch = new JTextField();
@@ -802,7 +805,7 @@ class BisTab extends JPanel
 		shownSpecs = specs;
 
 		specContent.removeAll();
-		specContent.add(specList(owned(specs)));
+		specContent.add(specList(recommended(specs), bestOwned(specs)));
 
 		specContent.add(Cards.gap(8));
 		specContent.add(Cards.sectionLabel("Compare any spec weapon"));
@@ -825,21 +828,39 @@ class BisTab extends JPanel
 	}
 
 	/**
-	 * Only the weapons actually in the bank. This is the recommendation, and it has to stay short —
-	 * listing every special in the game here buried the panel.
+	 * What to actually bring: the spec weapons you own that beat attacking normally against this
+	 * target, best first.
+	 * <p>
+	 * Owning a weapon is not a reason to list it. A bank with every special in the game would fill the
+	 * panel with weapons that do nothing here, and a recommendation that recommends everything
+	 * recommends nothing.
 	 */
-	private static List<SpecSuggestion> owned(List<SpecSuggestion> specs)
+	private static List<SpecSuggestion> recommended(List<SpecSuggestion> specs)
 	{
-		List<SpecSuggestion> mine = new ArrayList<>();
+		List<SpecSuggestion> worthUsing = new ArrayList<>();
+		for (SpecSuggestion suggestion : specs)
+		{
+			if (suggestion.isOwned() && suggestion.getDamageAdded() >= SPEC_WORTH_USING)
+			{
+				worthUsing.add(suggestion);
+			}
+		}
+
+		return worthUsing.size() > SPECS_SHOWN ? worthUsing.subList(0, SPECS_SHOWN) : worthUsing;
+	}
+
+	/** The best owned special, worth using or not, so an empty recommendation can still say why. */
+	private static SpecSuggestion bestOwned(List<SpecSuggestion> specs)
+	{
 		for (SpecSuggestion suggestion : specs)
 		{
 			if (suggestion.isOwned())
 			{
-				mine.add(suggestion);
+				return suggestion;
 			}
 		}
 
-		return mine.size() > SPECS_SHOWN ? mine.subList(0, SPECS_SHOWN) : mine;
+		return null;
 	}
 
 	private static SpecSuggestion suggestionFor(List<SpecSuggestion> specs, SpecialAttack special)
@@ -886,19 +907,24 @@ class BisTab extends JPanel
 	/**
 	 * The recommendation: the spec weapons you actually own, best first.
 	 */
-	private JPanel specList(List<SpecSuggestion> specs)
+	private JPanel specList(List<SpecSuggestion> specs, SpecSuggestion bestOwned)
 	{
 		JPanel list = new JPanel();
 		list.setLayout(new BoxLayout(list, BoxLayout.Y_AXIS));
 		list.setBackground(ColorScheme.DARK_GRAY_COLOR);
 		list.setBorder(BorderFactory.createEmptyBorder(4, 0, 4, 0));
 
-		list.add(Cards.sectionLabel("In your bank"));
+		list.add(Cards.sectionLabel("Recommended"));
 
 		if (specs.isEmpty())
 		{
-			list.add(Cards.muted("No special attack weapon in your bank could be scored against this "
-				+ "target. Use the picker below to see what one would be worth."));
+			// One line rather than a column of weapons marked as useless. Naming the closest one is
+			// what makes it an answer instead of a shrug.
+			list.add(Cards.muted(bestOwned == null
+				? "You have no special attack weapon GearForge can score."
+				: "Nothing you own is worth speccing with here — the closest is "
+					+ bestOwned.getSpecial().getDisplayName() + ", and it adds nothing against a target "
+					+ "you already rarely miss."));
 			return list;
 		}
 
@@ -908,11 +934,7 @@ class BisTab extends JPanel
 			list.add(Cards.gap(3));
 		}
 
-		list.add(Cards.muted(specs.get(0).getDamageAdded() >= 1
-			? "Damage each adds to the kill, using the setup above."
-			: "None of these beat just attacking this target. An accuracy special adds nothing to "
-				+ "something you already rarely miss — try a tougher target."));
-
+		list.add(Cards.muted("Damage each adds to the kill, using the setup above."));
 		return list;
 	}
 
