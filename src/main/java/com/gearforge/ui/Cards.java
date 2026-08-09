@@ -138,6 +138,14 @@ final class Cards
 		return card;
 	}
 
+	/**
+	 * The secondary text colour, for callers that need it on a component this class does not build.
+	 */
+	static Color mutedColor()
+	{
+		return MUTED_TEXT;
+	}
+
 	static JLabel body(String text)
 	{
 		JLabel label = new JLabel(text);

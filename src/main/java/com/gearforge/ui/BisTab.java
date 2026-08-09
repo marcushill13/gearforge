@@ -112,6 +112,12 @@ class BisTab extends JPanel
 	private final JComboBox<Monster> targetPicker = Cards.comboBox(new Monster[0]);
 	private final JPanel results = new JPanel();
 
+	/**
+	 * Refilled on every render. The spec section sits with Prayers and Boosts rather than at the foot
+	 * of the results, so the three things you can open are in one place.
+	 */
+	private final JPanel specContent = new JPanel();
+
 	private GearPool pool = GearPool.USABLE;
 
 	/**
@@ -359,6 +365,11 @@ class BisTab extends JPanel
 		controls.add(Cards.gap(6));
 		controls.add(Cards.expandable("Boosts", buildBoostList(),
 			header -> spriteManager.addSpriteTo(header, SpriteID.Staticons.HERBLORE, 0)));
+		controls.add(Cards.gap(6));
+		specContent.setLayout(new BoxLayout(specContent, BoxLayout.Y_AXIS));
+		specContent.setBackground(ColorScheme.DARK_GRAY_COLOR);
+		controls.add(Cards.expandable("Spec weapon", specContent,
+			header -> spriteManager.addSpriteTo(header, SpriteID.Staticons.ATTACK, 0)));
 		controls.add(Cards.gap(8));
 
 		targetSearch.setFont(FontManager.getRunescapeSmallFont());
@@ -604,6 +615,7 @@ class BisTab extends JPanel
 		Map<CombatStyle, ScoredSetup> byStyle, List<SpecSuggestion> specs, @Nullable Monster target)
 	{
 		results.removeAll();
+		showSpecs(specs);
 
 		if (byStyle.isEmpty())
 		{
@@ -626,10 +638,6 @@ class BisTab extends JPanel
 			results.add(styleRow(entry.getKey(), entry.getValue()));
 			results.add(Cards.gap(3));
 		}
-
-		results.add(Cards.gap(8));
-		results.add(Cards.expandable("Spec weapon", specList(specs),
-			header -> spriteManager.addSpriteTo(header, SpriteID.Staticons.ATTACK, 0)));
 
 		results.add(Cards.gap(8));
 		results.add(Cards.muted("Scored against "
@@ -714,6 +722,14 @@ class BisTab extends JPanel
 	 * The spec weapons as rows, best first. Collapsed by default: it is a secondary question, and the
 	 * panel is already dense.
 	 */
+	private void showSpecs(List<SpecSuggestion> specs)
+	{
+		specContent.removeAll();
+		specContent.add(specList(specs));
+		specContent.revalidate();
+		specContent.repaint();
+	}
+
 	private JPanel specList(List<SpecSuggestion> specs)
 	{
 		JPanel list = new JPanel();
@@ -723,8 +739,7 @@ class BisTab extends JPanel
 
 		if (specs.isEmpty())
 		{
-			list.add(Cards.muted("Nothing in your bank has a special attack GearForge scores, or none "
-				+ "of them beat simply attacking this target."));
+			list.add(Cards.muted("Nothing you can equip has a special attack GearForge scores yet."));
 			list.add(Cards.gap(4));
 			list.add(Cards.muted("It looks for: " + knownSpecWeapons() + "."));
 			return list;
@@ -760,9 +775,14 @@ class BisTab extends JPanel
 
 			row.add(text, BorderLayout.CENTER);
 
-			JLabel added = new JLabel(String.format("+%.0f", suggestion.getDamageAdded()));
+			// Specs that are not worth using here are still listed, just not dressed up as a
+			// recommendation. Owning a weapon should never look the same as not owning it.
+			boolean worthwhile = suggestion.getDamageAdded() >= 1;
+			JLabel added = new JLabel(worthwhile
+				? String.format("+%.0f", suggestion.getDamageAdded())
+				: "—");
 			added.setFont(FontManager.getRunescapeBoldFont());
-			added.setForeground(ColorScheme.BRAND_ORANGE);
+			added.setForeground(worthwhile ? ColorScheme.BRAND_ORANGE : Cards.mutedColor());
 			row.add(added, BorderLayout.EAST);
 
 			row.setMaximumSize(new Dimension(Integer.MAX_VALUE, row.getPreferredSize().height));
@@ -770,7 +790,11 @@ class BisTab extends JPanel
 			list.add(Cards.gap(3));
 		}
 
-		list.add(Cards.muted("Damage each spec adds to the kill, using the setup above."));
+		boolean anyWorthwhile = specs.get(0).getDamageAdded() >= 1;
+		list.add(Cards.muted(anyWorthwhile
+			? "Damage each spec adds to the kill, using the setup above."
+			: "None of these beat just attacking this target. An accuracy special adds nothing to "
+				+ "something you already rarely miss — try a tougher target."));
 		return list;
 	}
 
@@ -816,6 +840,7 @@ class BisTab extends JPanel
 		@Nullable Monster target)
 	{
 		results.removeAll();
+		showSpecs(specs);
 
 		if (best.isEmpty())
 		{
@@ -844,11 +869,6 @@ class BisTab extends JPanel
 
 		addSetup(top.getSetup());
 
-		// Shown even when empty. Hiding it made the feature look absent to anyone who owns none of the
-		// weapons it scores, which is the same mistake that hid the Inventory Setups import button.
-		results.add(Cards.gap(8));
-		results.add(Cards.expandable("Spec weapon", specList(specs),
-			header -> spriteManager.addSpriteTo(header, SpriteID.Staticons.ATTACK, 0)));
 
 		if (best.size() > 1)
 		{

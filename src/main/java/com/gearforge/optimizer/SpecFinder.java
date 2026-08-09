@@ -38,12 +38,6 @@ import javax.inject.Singleton;
 @Singleton
 public class SpecFinder
 {
-	/**
-	 * Below this the recommendation is noise. Two specs within a point of each other are a coin flip,
-	 * not a decision.
-	 */
-	private static final double WORTH_SHOWING = 1.0;
-
 	private final DpsEngine engine;
 
 	@Inject
@@ -78,11 +72,11 @@ public class SpecFinder
 				continue;
 			}
 
-			SpecSuggestion suggestion = evaluate(special, candidate, setup, template, baseline, normalHit);
-			if (suggestion != null && suggestion.getDamageAdded() >= WORTH_SHOWING)
-			{
-				suggestions.add(suggestion);
-			}
+			// Everything owned is returned, including specs that are not worth using here. Filtering them
+			// out made owning a weapon look identical to not owning one, which is the complaint that
+			// prompted this: a dragon scimitar's accuracy special adds nothing against a crab you
+			// already never miss, and silence is the wrong way to say so.
+			suggestions.add(evaluate(special, candidate, setup, template, baseline, normalHit));
 		}
 
 		suggestions.sort(SpecSuggestion.BEST_FIRST);
