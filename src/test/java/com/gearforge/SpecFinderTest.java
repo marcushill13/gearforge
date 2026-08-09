@@ -36,7 +36,11 @@ public class SpecFinderTest
 	private static final GearItem CLAWS = weapon(ItemID.DRAGON_CLAWS, "Dragon claws", 57, 56, 4);
 	private static final GearItem VOIDWAKER = weapon(ItemID.VOIDWAKER, "Voidwaker", 80, 80, 4);
 	private static final GearItem WARHAMMER = weapon(ItemID.DRAGON_WARHAMMER, "Dragon warhammer", 95, 80, 6);
-	private static final GearItem WHIP = weapon(ItemID.ABYSSAL_WHIP, "Abyssal whip", 82, 82, 4);
+	/**
+	 * The setup's own weapon, and the control for "has no special attack". Deliberately not the whip:
+	 * that gained one, which is what broke this test the first time.
+	 */
+	private static final GearItem PLAIN = weapon(ItemID.RUNE_SCIMITAR, "Rune scimitar", 45, 44, 4);
 
 	@Test
 	public void aGuaranteedSpecWinsWhereAccuracyIsHardToCome()
@@ -87,7 +91,22 @@ public class SpecFinderTest
 	@Test
 	public void aWeaponWithNoSpecialIsNotSuggested()
 	{
-		assertTrue(find(Target.dummy(), WHIP).isEmpty());
+		assertTrue(find(Target.dummy(), PLAIN).isEmpty());
+	}
+
+	/**
+	 * A spec that is not worth using is still reported, just at no value. Dropping it made owning the
+	 * weapon look identical to not owning it.
+	 */
+	@Test
+	public void anUnhelpfulSpecIsStillListed()
+	{
+		GearItem scimitar = weapon(ItemID.DRAGON_SCIMITAR, "Dragon scimitar", 67, 66, 4);
+
+		List<SpecSuggestion> suggestions = find(Target.dummy(), scimitar);
+
+		assertEquals(1, suggestions.size());
+		assertEquals(SpecialAttack.DRAGON_SCIMITAR, suggestions.get(0).getSpecial());
 	}
 
 	private List<SpecSuggestion> find(Target target, GearItem... specWeapons)
@@ -104,7 +123,7 @@ public class SpecFinderTest
 		Target target, int bodyStrength, int hitpoints, GearItem... specWeapons)
 	{
 		Map<EquipmentSlot, GearItem> setup = new EnumMap<>(EquipmentSlot.class);
-		setup.put(EquipmentSlot.WEAPON, WHIP);
+		setup.put(EquipmentSlot.WEAPON, PLAIN);
 		setup.put(EquipmentSlot.BODY, body(bodyStrength));
 
 		List<EquipmentStats> pieces = new ArrayList<>();
@@ -124,7 +143,7 @@ public class SpecFinderTest
 			.build();
 
 		List<GearItem> owned = new ArrayList<>(Arrays.asList(specWeapons));
-		owned.add(WHIP);
+		owned.add(PLAIN);
 
 		return finder.find(setup, owned, context);
 	}
