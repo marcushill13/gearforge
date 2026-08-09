@@ -26,7 +26,17 @@ import net.runelite.api.gameval.ItemID;
  * <p>
  * Every mechanic here is transcribed from the weapon's own wiki page. Where a weapon's behaviour
  * could not be pinned down exactly it is left out rather than guessed at — a spec that is quietly
- * wrong is worse than one that is missing, because it would be recommended.
+ * wrong is worse than one that is missing, because it would be recommended. * <p>
+ * Deliberately absent, and why:
+ * <ul>
+ *     <li><b>Magic shortbow</b> — Snapshot adds a flat +107 to the ranged attack roll rather than a
+ *     multiplier, and its max hit ignores offensive prayers. That needs its own path through the
+ *     engine, and a ranged spec scored wrong would be recommended over a melee one scored right.</li>
+ *     <li><b>Dragon spear</b> — the special stuns and deals no damage, so it has no value in the one
+ *     currency everything here is ranked by. Showing it at zero would be noise.</li>
+ *     <li><b>Soulreaper axe</b> — scales with soul stacks, which are fight state rather than a
+ *     property of the weapon.</li>
+ * </ul>
  */
 public enum SpecialAttack
 {
@@ -67,7 +77,16 @@ public enum SpecialAttack
 	DRAGON_WARHAMMER("Dragon warhammer", 50, Shape.DEFENCE_REDUCTION, ItemID.DRAGON_WARHAMMER, 1.0, 1.5, 0.30),
 
 	/** Lowers the target's Defence by 35%, at +25% accuracy to land it. */
-	ELDER_MAUL("Elder maul", 50, Shape.DEFENCE_REDUCTION, ItemID.ELDER_MAUL, 1.25, 1.0, 0.35);
+	ELDER_MAUL("Elder maul", 50, Shape.DEFENCE_REDUCTION, ItemID.ELDER_MAUL, 1.25, 1.0, 0.35),
+
+	/**
+	 * Sever. One hit at +25% accuracy against slash defence, with no damage boost — worth something
+	 * only against a target you struggle to hit. The prayer-disabling half is PvP and is not scored.
+	 */
+	DRAGON_SCIMITAR("Dragon scimitar", 55, Shape.SINGLE_HIT, ItemID.DRAGON_SCIMITAR, 1.25, 1.0),
+
+	/** Energy Drain. One hit at +25% accuracy; the run-energy siphon is PvP only. */
+	ABYSSAL_WHIP("Abyssal whip", 50, Shape.SINGLE_HIT, ItemID.ABYSSAL_WHIP, 1.25, 1.0);
 
 	/**
 	 * How the spec's damage is shaped. Each needs its own distribution; none of them is a multiplier

@@ -16,6 +16,7 @@ import com.gearforge.dps.CombatContext;
 import com.gearforge.dps.CombatPrayer;
 import com.gearforge.dps.CombatStyle;
 import com.gearforge.dps.Potion;
+import com.gearforge.dps.SpecialAttack;
 import com.gearforge.dps.PrayerIcon;
 import com.gearforge.dps.Target;
 import com.gearforge.optimizer.DpsOptimizer;
@@ -696,6 +697,15 @@ class BisTab extends JPanel
 		list.setBackground(ColorScheme.DARK_GRAY_COLOR);
 		list.setBorder(BorderFactory.createEmptyBorder(4, 0, 4, 0));
 
+		if (specs.isEmpty())
+		{
+			list.add(Cards.muted("Nothing in your bank has a special attack GearForge scores, or none "
+				+ "of them beat simply attacking this target."));
+			list.add(Cards.gap(4));
+			list.add(Cards.muted("It looks for: " + knownSpecWeapons() + "."));
+			return list;
+		}
+
 		for (SpecSuggestion suggestion : specs)
 		{
 			JPanel row = new JPanel(new BorderLayout(6, 0));
@@ -738,6 +748,21 @@ class BisTab extends JPanel
 
 		list.add(Cards.muted("Damage each spec adds to the kill, using the setup above."));
 		return list;
+	}
+
+	/**
+	 * The weapons the spec section knows about, so an empty result says what it was looking for rather
+	 * than leaving the player guessing whether the feature works.
+	 */
+	private static String knownSpecWeapons()
+	{
+		List<String> names = new ArrayList<>();
+		for (SpecialAttack special : SpecialAttack.values())
+		{
+			names.add(special.getDisplayName().toLowerCase());
+		}
+
+		return String.join(", ", names);
 	}
 
 	/**
@@ -795,12 +820,11 @@ class BisTab extends JPanel
 
 		addSetup(top.getSetup());
 
-		if (!specs.isEmpty())
-		{
-			results.add(Cards.gap(8));
-			results.add(Cards.expandable("Spec weapon", specList(specs),
-				header -> spriteManager.addSpriteTo(header, SpriteID.Staticons.ATTACK, 0)));
-		}
+		// Shown even when empty. Hiding it made the feature look absent to anyone who owns none of the
+		// weapons it scores, which is the same mistake that hid the Inventory Setups import button.
+		results.add(Cards.gap(8));
+		results.add(Cards.expandable("Spec weapon", specList(specs),
+			header -> spriteManager.addSpriteTo(header, SpriteID.Staticons.ATTACK, 0)));
 
 		if (best.size() > 1)
 		{
