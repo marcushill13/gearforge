@@ -13,7 +13,7 @@ import lombok.Value;
  * which is why both are tracked separately.
  */
 @Value
-@Builder
+@Builder(toBuilder = true)
 public class Target
 {
 	@Builder.Default

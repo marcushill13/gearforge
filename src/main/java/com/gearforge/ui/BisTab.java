@@ -22,6 +22,8 @@ import com.gearforge.optimizer.DpsOptimizer;
 import com.gearforge.optimizer.GreedyOptimizer;
 import com.gearforge.optimizer.OptimizerResult;
 import com.gearforge.optimizer.ScoredSetup;
+import com.gearforge.optimizer.SpecFinder;
+import com.gearforge.optimizer.SpecSuggestion;
 import com.gearforge.setups.Setup;
 import com.gearforge.setups.SetupSource;
 import com.gearforge.setups.SetupStore;
@@ -87,6 +89,7 @@ class BisTab extends JPanel
 	private final MonsterRepository monsters;
 	private final ItemManager itemManager;
 	private final SpriteManager spriteManager;
+	private final SpecFinder specFinder;
 
 	/** Matches the wiki calculator's habit of scoring against a low-defence crab by default. */
 	private static final String DEFAULT_TARGET = "Ammonite Crab";
@@ -148,7 +151,8 @@ class BisTab extends JPanel
 		BankFilterService bankFilterService,
 		MonsterRepository monsters,
 		ItemManager itemManager,
-		SpriteManager spriteManager)
+		SpriteManager spriteManager,
+		SpecFinder specFinder)
 	{
 		this.clientThread = clientThread;
 		this.executor = executor;
@@ -163,6 +167,7 @@ class BisTab extends JPanel
 		this.monsters = monsters;
 		this.itemManager = itemManager;
 		this.spriteManager = spriteManager;
+		this.specFinder = specFinder;
 
 		setLayout(new BorderLayout());
 		setBackground(ColorScheme.DARK_GRAY_COLOR);
@@ -509,9 +514,10 @@ class BisTab extends JPanel
 		}
 		else if (profile.isOffensive())
 		{
-			List<ScoredSetup> best = dpsOptimizer.best(
-				pooled, contextFor(profile, levels, target, prayer, potion), slayerTask, 3);
-			SwingUtilities.invokeLater(() -> renderOffensive(best, profile, pool, target));
+			CombatContext context = contextFor(profile, levels, target, prayer, potion);
+			List<ScoredSetup> best = dpsOptimizer.best(pooled, context, slayerTask, 3);
+			List<SpecSuggestion> specs = specsFor(best, pooled, context);
+			SwingUtilities.invokeLater(() -> renderOffensive(best, specs, profile, pool, target));
 		}
 		else
 		{
@@ -561,6 +567,7 @@ class BisTab extends JPanel
 			.style(style)
 			.equipment(EquipmentStats.builder().build())
 			.target(target == null ? Target.dummy() : target.toTarget())
+			.targetHitpoints(target == null ? 0 : target.getHitpoints())
 			.poweredStaff(false)
 			.baseSpellDamage(style.isMagic() ? ASSUMED_SPELL_DAMAGE : 0)
 			.weaponSpeedTicks(SPELL_SPEED_TICKS)
@@ -648,6 +655,92 @@ class BisTab extends JPanel
 	}
 
 	/**
+	 * Scores the spec weapons against the setup that just won, rather than against bare stats — the
+	 * whole point being that your body slot's strength bonus changes what the claws hit for.
+	 */
+	private List<SpecSuggestion> specsFor(
+		List<ScoredSetup> best, List<GearItem> pooled, CombatContext context)
+	{
+		if (best.isEmpty())
+		{
+			return Collections.emptyList();
+		}
+
+		Map<EquipmentSlot, GearItem> winner = best.get(0).getSetup();
+		List<EquipmentStats> pieces = new ArrayList<>();
+		int speed = SPELL_SPEED_TICKS;
+
+		for (Map.Entry<EquipmentSlot, GearItem> entry : winner.entrySet())
+		{
+			pieces.add(entry.getValue().getStats());
+			if (entry.getKey() == EquipmentSlot.WEAPON)
+			{
+				speed = Math.max(1, entry.getValue().getStats().getSpeed());
+			}
+		}
+
+		return specFinder.find(winner, pooled, context.toBuilder()
+			.equipment(EquipmentStats.sum(pieces))
+			.weaponSpeedTicks(speed)
+			.build());
+	}
+
+	/**
+	 * The spec weapons as rows, best first. Collapsed by default: it is a secondary question, and the
+	 * panel is already dense.
+	 */
+	private JPanel specList(List<SpecSuggestion> specs)
+	{
+		JPanel list = new JPanel();
+		list.setLayout(new BoxLayout(list, BoxLayout.Y_AXIS));
+		list.setBackground(ColorScheme.DARK_GRAY_COLOR);
+		list.setBorder(BorderFactory.createEmptyBorder(4, 0, 4, 0));
+
+		for (SpecSuggestion suggestion : specs)
+		{
+			JPanel row = new JPanel(new BorderLayout(6, 0));
+			row.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+			row.setBorder(BorderFactory.createEmptyBorder(5, 6, 5, 6));
+			row.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+			JLabel icon = new JLabel();
+			itemManager.getImage(suggestion.getWeapon().getItemId()).addTo(icon);
+			row.add(icon, BorderLayout.WEST);
+
+			JPanel text = new JPanel();
+			text.setLayout(new BoxLayout(text, BoxLayout.Y_AXIS));
+			text.setBackground(row.getBackground());
+
+			JLabel name = new JLabel(suggestion.getSpecial().getDisplayName());
+			name.setFont(FontManager.getRunescapeBoldFont());
+			name.setForeground(ColorScheme.LIGHT_GRAY_COLOR);
+			name.setAlignmentX(Component.LEFT_ALIGNMENT);
+			text.add(name);
+
+			text.add(Cards.body(suggestion.getSpecial().describe()));
+
+			if (suggestion.getNote() != null)
+			{
+				text.add(Cards.muted(suggestion.getNote()));
+			}
+
+			row.add(text, BorderLayout.CENTER);
+
+			JLabel added = new JLabel(String.format("+%.0f", suggestion.getDamageAdded()));
+			added.setFont(FontManager.getRunescapeBoldFont());
+			added.setForeground(ColorScheme.BRAND_ORANGE);
+			row.add(added, BorderLayout.EAST);
+
+			row.setMaximumSize(new Dimension(Integer.MAX_VALUE, row.getPreferredSize().height));
+			list.add(row);
+			list.add(Cards.gap(3));
+		}
+
+		list.add(Cards.muted("Damage each spec adds to the kill, using the setup above."));
+		return list;
+	}
+
+	/**
 	 * Gets back to the overview from a single style's setup.
 	 * <p>
 	 * The only route back used to be reopening "Optimise for" and reselecting "Best of every style",
@@ -670,7 +763,8 @@ class BisTab extends JPanel
 	}
 
 	private void renderOffensive(
-		List<ScoredSetup> best, Profile profile, GearPool pool, @Nullable Monster target)
+		List<ScoredSetup> best, List<SpecSuggestion> specs, Profile profile, GearPool pool,
+		@Nullable Monster target)
 	{
 		results.removeAll();
 
@@ -700,6 +794,13 @@ class BisTab extends JPanel
 		addSection("Why", reasons);
 
 		addSetup(top.getSetup());
+
+		if (!specs.isEmpty())
+		{
+			results.add(Cards.gap(8));
+			results.add(Cards.expandable("Spec weapon", specList(specs),
+				header -> spriteManager.addSpriteTo(header, SpriteID.Staticons.ATTACK, 0)));
+		}
 
 		if (best.size() > 1)
 		{

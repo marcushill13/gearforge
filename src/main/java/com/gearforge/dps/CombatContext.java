@@ -43,6 +43,13 @@ public class CombatContext
 	Target target = Target.dummy();
 
 	/**
+	 * The target's hitpoints, used only to value a defence reduction: how much a shorter kill is worth
+	 * depends entirely on how long the kill was. Zero when unknown, which scores such specs at nothing
+	 * rather than guessing.
+	 */
+	int targetHitpoints;
+
+	/**
 	 * Whether the magic attack comes from a powered staff. Only powered staves get a style bonus to
 	 * effective magic level; a spellbook cast gets none.
 	 */
