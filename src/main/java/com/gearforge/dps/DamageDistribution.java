@@ -80,6 +80,15 @@ public final class DamageDistribution
 	}
 
 	/**
+	 * Builds directly from a probability array, for a spec whose outcomes are enumerated rather than
+	 * rolled. The array is copied and must already sum to one.
+	 */
+	public static DamageDistribution fromProbabilities(double[] probabilities)
+	{
+		return new DamageDistribution(Arrays.copyOf(probabilities, probabilities.length));
+	}
+
+	/**
 	 * Two independent hits landing together, as one distribution.
 	 */
 	public DamageDistribution plus(DamageDistribution other)
