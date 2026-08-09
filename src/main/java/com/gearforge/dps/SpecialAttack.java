@@ -6,6 +6,7 @@ import java.util.Collections;
 import java.util.List;
 import javax.annotation.Nullable;
 import net.runelite.api.gameval.ItemID;
+import net.runelite.client.game.ItemVariationMapping;
 
 /**
  * The special attacks GearForge can score, with their mechanics written out rather than approximated.
@@ -113,7 +114,10 @@ public enum SpecialAttack
 	ARCLIGHT("Arclight", 50, Shape.DEFENCE_REDUCTION, ItemID.ARCLIGHT, 1.0, 1.0, 0.05),
 
 	/** The pre-upgrade form, with identical mechanics. */
-	DARKLIGHT("Darklight", 50, Shape.DEFENCE_REDUCTION, ItemID.DARKLIGHT, 1.0, 1.0, 0.05);
+	DARKLIGHT("Darklight", 50, Shape.DEFENCE_REDUCTION, ItemID.DARKLIGHT, 1.0, 1.0, 0.05),
+
+	/** Sweep, mechanically identical to the dragon halberd's. */
+	CRYSTAL_HALBERD("Crystal halberd", 30, Shape.SWEEP, ItemID.CRYSTAL_HALBERD, 1.0, 1.1);
 
 	/**
 	 * How the spec's damage is shaped. Each needs its own distribution; none of them is a multiplier
@@ -253,12 +257,26 @@ public enum SpecialAttack
 		}
 	}
 
+	/**
+	 * Matches on the whole variant family, not just the exact id. A crystal halberd has a charge state
+	 * per hundred, an ornate granite maul is its own item, and every one of them specs the same — so
+	 * listing ids one by one would go stale the moment a new charge tier appeared.
+	 */
 	@Nullable
 	public static SpecialAttack forItem(int itemId)
 	{
 		for (SpecialAttack special : values())
 		{
 			if (special.itemId == itemId)
+			{
+				return special;
+			}
+		}
+
+		int family = ItemVariationMapping.map(itemId);
+		for (SpecialAttack special : values())
+		{
+			if (ItemVariationMapping.map(special.itemId) == family)
 			{
 				return special;
 			}

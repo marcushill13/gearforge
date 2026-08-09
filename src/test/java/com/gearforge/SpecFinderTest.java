@@ -23,6 +23,7 @@ import org.junit.Test;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 /**
@@ -232,5 +233,25 @@ public class SpecFinderTest
 			.size(size)
 			.defensiveBonuses(EquipmentStats.builder().dslash(50).dstab(50).dcrush(50).build())
 			.build();
+	}
+
+	/**
+	 * A charged weapon arrives under a different id per charge tier, and every one of them specs the
+	 * same. Matching only exact ids would quietly ignore the weapon you actually own.
+	 */
+	@Test
+	public void aChargeVariantIsRecognisedAsTheSameSpecWeapon()
+	{
+		assertEquals(SpecialAttack.CRYSTAL_HALBERD,
+			SpecialAttack.forItem(ItemID.CRYSTAL_HALBERD));
+		assertEquals(SpecialAttack.CRYSTAL_HALBERD,
+			SpecialAttack.forItem(ItemID.CRYSTAL_HALBERD_INACTIVE));
+	}
+
+	@Test
+	public void anOrdinaryItemHasNoSpecialAttack()
+	{
+		assertNull(SpecialAttack.forItem(ItemID.RUNE_SCIMITAR));
+		assertNull(SpecialAttack.forItem(ItemID.SHARK));
 	}
 }
