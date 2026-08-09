@@ -39,11 +39,32 @@ import javax.inject.Singleton;
 @Singleton
 public class DpsOptimizer
 {
-	/** How many items per slot survive the raw-stat pre-filter. */
-	private static final int CANDIDATES_PER_SLOT = 5;
+	/**
+	 * How many items per slot survive the raw-stat pre-filter.
+	 * <p>
+	 * Measured, not guessed. At five, the search fell short of an exhaustive one in every one of
+	 * fifteen deep banks, by up to 4.16%. At ten it was still short in thirteen; at fifteen, six. At
+	 * twenty it matched exhaustive every time, and stayed there at thirty and forty.
+	 * <p>
+	 * The failure the low number caused is invisible from outside: an item that is second best at both
+	 * accuracy and strength beats items that are first at one, but never enters the search, and the
+	 * wrong answer is presented with the same confidence as the right one.
+	 * <p>
+	 * {@code OptimizerBreadthTest} holds the measurement and fails if the shipped breadth stops
+	 * matching an exhaustive search, or stops being fast enough to run on a gear change.
+	 */
+	private static final int CANDIDATES_PER_SLOT = 20;
 
 	/** How many partial setups survive each beam step. */
 	private static final int BEAM_WIDTH = 50;
+
+	/**
+	 * Adjustable so the breadth can be measured rather than assumed. The pre-filter keeps the best few
+	 * items per slot by raw offensive stat, which is a guess at what might win — an item that is second
+	 * best at both accuracy and strength can beat items that are first at one, and would never enter
+	 * the search.
+	 */
+	private final int candidatesPerSlot;
 
 	/**
 	 * Weapon first because it dominates; shield straight after so the two-handed decision resolves
@@ -69,6 +90,20 @@ public class DpsOptimizer
 	@Inject
 	public DpsOptimizer(DpsEngine engine, SetEffectRegistry setEffects, ItemCategories itemCategories)
 	{
+		this(engine, setEffects, itemCategories, CANDIDATES_PER_SLOT);
+	}
+
+	static int candidatesPerSlotDefault()
+	{
+		return CANDIDATES_PER_SLOT;
+	}
+
+	/** For measuring how much the pre-filter costs in accuracy. */
+	DpsOptimizer(
+		DpsEngine engine, SetEffectRegistry setEffects, ItemCategories itemCategories,
+		int candidatesPerSlot)
+	{
+		this.candidatesPerSlot = candidatesPerSlot;
 		this.engine = engine;
 		this.setEffects = setEffects;
 		this.itemCategories = itemCategories;
@@ -303,11 +338,11 @@ public class DpsOptimizer
 		return candidates;
 	}
 
-	private static List<GearItem> topBy(List<GearItem> items, Comparator<GearItem> order)
+	private List<GearItem> topBy(List<GearItem> items, Comparator<GearItem> order)
 	{
 		List<GearItem> sorted = new ArrayList<>(items);
 		sorted.sort(order);
-		return sorted.subList(0, Math.min(CANDIDATES_PER_SLOT, sorted.size()));
+		return sorted.subList(0, Math.min(candidatesPerSlot, sorted.size()));
 	}
 
 	private static Comparator<GearItem> accuracyRelevance(CombatStyle style)
