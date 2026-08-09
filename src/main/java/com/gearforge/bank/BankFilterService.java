@@ -1,6 +1,7 @@
 package com.gearforge.bank;
 
 import com.gearforge.data.EquipmentSlot;
+import com.gearforge.data.BankModel;
 import com.gearforge.data.ItemCanonicalizer;
 import com.gearforge.setups.ItemRequirement;
 import com.gearforge.setups.Setup;
@@ -99,6 +100,7 @@ public class BankFilterService
 	private final PluginManager pluginManager;
 	private final ConfigManager configManager;
 	private final ItemCanonicalizer canonicalizer;
+	private final BankModel bankModel;
 
 	private boolean registered;
 
@@ -115,13 +117,15 @@ public class BankFilterService
 		TagManager tagManager,
 		PluginManager pluginManager,
 		ConfigManager configManager,
-		ItemCanonicalizer canonicalizer)
+		ItemCanonicalizer canonicalizer,
+		BankModel bankModel)
 	{
 		this.clientThread = clientThread;
 		this.tagManager = tagManager;
 		this.pluginManager = pluginManager;
 		this.configManager = configManager;
 		this.canonicalizer = canonicalizer;
+		this.bankModel = bankModel;
 	}
 
 	/**
@@ -288,6 +292,7 @@ public class BankFilterService
 	private Set<Integer> acceptedIds(Setup setup)
 	{
 		Set<Integer> ids = new HashSet<>();
+		Map<Integer, BankModel.OwnedQuantity> owned = bankModel.ownedItems();
 
 		List<ItemRequirement> all = new ArrayList<>(setup.getEquipment().values());
 		all.addAll(setup.getInventory());
@@ -301,9 +306,17 @@ public class BankFilterService
 
 			ids.add(requirement.getItemId());
 
+			// Only variants actually owned. Tagging the whole family put a slot in the bank for every
+			// charge state of a skills necklace, five of which the player has never had.
 			if (requirement.isFuzzy())
 			{
-				ids.addAll(canonicalizer.variantsOf(requirement.getItemId()));
+				for (int variant : canonicalizer.variantsOf(requirement.getItemId()))
+				{
+					if (owned.containsKey(variant))
+					{
+						ids.add(variant);
+					}
+				}
 			}
 		}
 

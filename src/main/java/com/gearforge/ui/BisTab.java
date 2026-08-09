@@ -511,7 +511,26 @@ class BisTab extends JPanel
 				}
 			}
 
-			SwingUtilities.invokeLater(() -> renderAllStyles(byStyle, target));
+			// Scored against the winning style's setup: the overview is where people look first, and a
+			// spec weapon is a question about the whole trip rather than about one style.
+			CombatStyle bestStyle = null;
+			ScoredSetup bestSetup = null;
+			for (Map.Entry<CombatStyle, ScoredSetup> entry : byStyle.entrySet())
+			{
+				if (bestSetup == null
+					|| entry.getValue().getScore().getDps() > bestSetup.getScore().getDps())
+				{
+					bestStyle = entry.getKey();
+					bestSetup = entry.getValue();
+				}
+			}
+
+			List<SpecSuggestion> specs = bestSetup == null
+				? Collections.emptyList()
+				: specsFor(Collections.singletonList(bestSetup), pooled,
+					contextFor(Profile.forStyle(bestStyle), levels, target, prayer, potion));
+
+			SwingUtilities.invokeLater(() -> renderAllStyles(byStyle, specs, target));
 		}
 		else if (profile.isOffensive())
 		{
@@ -581,7 +600,8 @@ class BisTab extends JPanel
 	 * Deliberately shows the gear and lets DPS be the ranking, rather than presenting a single number
 	 * the player has to configure their way towards.
 	 */
-	private void renderAllStyles(Map<CombatStyle, ScoredSetup> byStyle, @Nullable Monster target)
+	private void renderAllStyles(
+		Map<CombatStyle, ScoredSetup> byStyle, List<SpecSuggestion> specs, @Nullable Monster target)
 	{
 		results.removeAll();
 
@@ -606,6 +626,10 @@ class BisTab extends JPanel
 			results.add(styleRow(entry.getKey(), entry.getValue()));
 			results.add(Cards.gap(3));
 		}
+
+		results.add(Cards.gap(8));
+		results.add(Cards.expandable("Spec weapon", specList(specs),
+			header -> spriteManager.addSpriteTo(header, SpriteID.Staticons.ATTACK, 0)));
 
 		results.add(Cards.gap(8));
 		results.add(Cards.muted("Scored against "
