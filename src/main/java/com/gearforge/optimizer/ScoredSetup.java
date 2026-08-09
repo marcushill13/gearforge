@@ -14,9 +14,16 @@ import java.util.Map;
  */
 public final class ScoredSetup
 {
-	/** Highest DPS first. */
+	/**
+	 * Highest DPS first, then the setup that survives better.
+	 * <p>
+	 * Whole setups tie on DPS constantly — the close-alternatives list is full of 0.00 differences —
+	 * and with no second key the winner was whichever the beam happened to build first. Total defence
+	 * decides those, which is what a player would pick anyway.
+	 */
 	public static final Comparator<ScoredSetup> BY_DPS_DESC =
-		Comparator.comparingDouble((ScoredSetup setup) -> setup.getScore().getDps()).reversed();
+		Comparator.comparingDouble((ScoredSetup setup) -> setup.getScore().getDps()).reversed()
+			.thenComparing(Comparator.comparingInt(ScoredSetup::defensiveValue).reversed());
 
 	private final Map<EquipmentSlot, GearItem> setup;
 	private final SetupScore score;
@@ -45,6 +52,20 @@ public final class ScoredSetup
 	public List<String> getNotes()
 	{
 		return Collections.unmodifiableList(notes);
+	}
+
+	/**
+	 * Total defence across every worn piece, used only to settle DPS ties.
+	 */
+	private int defensiveValue()
+	{
+		int total = 0;
+		for (GearItem item : setup.values())
+		{
+			total += DpsOptimizer.defensiveValue(item.getStats());
+		}
+
+		return total;
 	}
 
 	/**

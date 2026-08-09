@@ -314,7 +314,7 @@ public class DpsOptimizer
 	{
 		return Comparator
 			.comparingInt((GearItem item) -> style.attackBonusOf(item.getStats())).reversed()
-			.thenComparing(GearItem::getName);
+			.thenComparing(BY_DEFENSIVE_VALUE);
 	}
 
 	private static Comparator<GearItem> damageRelevance(CombatStyle style)
@@ -323,18 +323,41 @@ public class DpsOptimizer
 		{
 			return Comparator
 				.comparingDouble((GearItem item) -> item.getStats().getMagicDamage()).reversed()
-				.thenComparing(GearItem::getName);
+				.thenComparing(BY_DEFENSIVE_VALUE);
 		}
 
 		if (style.isRanged())
 		{
 			return Comparator
 				.comparingInt((GearItem item) -> item.getStats().getRangedStrength()).reversed()
-				.thenComparing(GearItem::getName);
+				.thenComparing(BY_DEFENSIVE_VALUE);
 		}
 
 		return Comparator
 			.comparingInt((GearItem item) -> item.getStats().getStrength()).reversed()
-			.thenComparing(GearItem::getName);
+			.thenComparing(BY_DEFENSIVE_VALUE);
+	}
+
+	/**
+	 * The tie-break, once offence is equal.
+	 * <p>
+	 * Offensive ties are common and exact. The oathplate chest is +16 slash and nothing else; the
+	 * fighter torso is +0 across the board. Both give +4 strength, so for stab and crush the two are
+	 * identical to the DPS engine and nothing is left to separate them. This used to fall through to
+	 * the item name, which meant the alphabet decided — and "Fighter torso" beat "Oathplate chest"
+	 * every time.
+	 * <p>
+	 * Defence is the right decider: at equal damage a player wants the piece that survives better.
+	 * Prayer bonus follows, then the name, so a run is still reproducible.
+	 */
+	static final Comparator<GearItem> BY_DEFENSIVE_VALUE = Comparator
+		.comparingInt((GearItem item) -> defensiveValue(item.getStats())).reversed()
+		.thenComparing(Comparator.comparingInt((GearItem item) -> item.getStats().getPrayer()).reversed())
+		.thenComparing(GearItem::getName);
+
+	static int defensiveValue(EquipmentStats stats)
+	{
+		return stats.getDstab() + stats.getDslash() + stats.getDcrush()
+			+ stats.getDmagic() + stats.getDrange();
 	}
 }

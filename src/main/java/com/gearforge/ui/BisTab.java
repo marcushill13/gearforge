@@ -91,8 +91,13 @@ class BisTab extends JPanel
 	/** Matches the wiki calculator's habit of scoring against a low-defence crab by default. */
 	private static final String DEFAULT_TARGET = "Ammonite Crab";
 
-	/** How many rows the dropdown shows before scrolling. Not a cap on its contents. */
-	private static final int TARGET_POPUP_ROWS = 12;
+	/**
+	 * How many rows the dropdown shows before scrolling. Not a cap on its contents.
+	 * <p>
+	 * Deliberately tall. Twelve rows was a keyhole to scroll a few thousand monsters through, and while
+	 * the list is open the setup underneath is not what you are reading anyway.
+	 */
+	private static final int TARGET_POPUP_ROWS = 26;
 
 	/** Raced against each other for the overview. */
 	private static final List<CombatStyle> OFFENSIVE_STYLES = Arrays.asList(
@@ -642,6 +647,28 @@ class BisTab extends JPanel
 		return row;
 	}
 
+	/**
+	 * Gets back to the overview from a single style's setup.
+	 * <p>
+	 * The only route back used to be reopening "Optimise for" and reselecting "Best of every style",
+	 * which is not somewhere you would think to look after clicking Open on a row.
+	 */
+	private JPanel backToAllStyles()
+	{
+		JButton back = Cards.button("← All styles");
+		back.setToolTipText("Back to the best setup for every style");
+		back.setMaximumSize(new Dimension(Integer.MAX_VALUE, 24));
+		back.addActionListener(event -> profilePicker.setSelectedItem(Profile.ALL_STYLES));
+
+		JPanel row = new JPanel(new BorderLayout());
+		row.setBackground(ColorScheme.DARK_GRAY_COLOR);
+		row.setBorder(BorderFactory.createEmptyBorder(0, 0, 8, 0));
+		row.setAlignmentX(Component.LEFT_ALIGNMENT);
+		row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 32));
+		row.add(back, BorderLayout.CENTER);
+		return row;
+	}
+
 	private void renderOffensive(
 		List<ScoredSetup> best, Profile profile, GearPool pool, @Nullable Monster target)
 	{
@@ -656,6 +683,8 @@ class BisTab extends JPanel
 
 		ScoredSetup top = best.get(0);
 		remember(top.getSetup(), profile.toString());
+
+		results.add(backToAllStyles());
 
 		results.add(summaryCard(
 			String.format("%.2f DPS", top.getScore().getDps()),
@@ -701,6 +730,8 @@ class BisTab extends JPanel
 		}
 
 		remember(best.getSetup(), profile.toString());
+
+		results.add(backToAllStyles());
 
 		results.add(summaryCard(
 			profile.getStat().format(best.getTotal()),

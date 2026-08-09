@@ -274,6 +274,42 @@ public class DpsOptimizerTest
 		return new GearItem(id, name, 1, stats, EnumSet.of(Storage.BANK));
 	}
 
+	/**
+	 * The reported bug: for stab and crush, oathplate chest and the fighter torso are offensively
+	 * identical — both +0 attack in the style, both +4 strength — so DPS ties exactly. The tie used to
+	 * fall through to the item name, and "Fighter torso" wins the alphabet. Defence decides it now.
+	 */
+	@Test
+	public void aDpsTieGoesToTheBetterDefensivePiece()
+	{
+		List<GearItem> owned = Arrays.asList(
+			weapon(1, "Abyssal whip", 82, 82, 4, false),
+			// Real numbers: the torso is +0 attack everywhere, the chest is +16 slash and nothing else.
+			// Under a crush context neither contributes accuracy, and both give +4 strength.
+			defensiveBody(2, "Fighter torso", 4, 61, 60, 62),
+			defensiveBody(3, "Oathplate chest", 4, 105, 128, 100));
+
+		CombatContext crush = melee().toBuilder().style(CombatStyle.CRUSH).build();
+		List<ScoredSetup> results = optimizer.best(owned, crush, false, 3);
+
+		assertFalse(results.isEmpty());
+		assertEquals("Oathplate chest",
+			results.get(0).getSetup().get(EquipmentSlot.BODY).getName());
+	}
+
+	private static GearItem defensiveBody(int id, String name, int strength, int dstab, int dslash, int dcrush)
+	{
+		EquipmentStats stats = EquipmentStats.builder()
+			.strength(strength)
+			.dstab(dstab)
+			.dslash(dslash)
+			.dcrush(dcrush)
+			.slot(EquipmentSlot.BODY.getSlotIndex())
+			.build();
+
+		return new GearItem(id, name, 1, stats, EnumSet.of(Storage.BANK));
+	}
+
 	private static GearItem armour(int id, String name, EquipmentSlot slot, int slash, int strength)
 	{
 		EquipmentStats stats = EquipmentStats.builder()
