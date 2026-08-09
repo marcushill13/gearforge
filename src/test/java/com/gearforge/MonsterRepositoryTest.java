@@ -82,4 +82,46 @@ public class MonsterRepositoryTest
 				all.get(i - 1).displayName().compareToIgnoreCase(all.get(i).displayName()) <= 0);
 		}
 	}
+
+	/**
+	 * The complaint that prompted this: twenty armoured zombies, differing only in which room they
+	 * stand in. An ordinary monster gets one row, whatever the source data lists.
+	 */
+	@Test
+	public void anOrdinaryMonsterGetsExactlyOneRow()
+	{
+		assertEquals(1, countNamed("Armoured zombie"));
+		assertEquals(1, countNamed("Ankou"));
+	}
+
+	/**
+	 * Bosses keep their forms, because a Zulrah colour really does defend differently and picking the
+	 * wrong one gives you the wrong answer.
+	 */
+	@Test
+	public void bossFormsSurvive()
+	{
+		assertTrue(countNamed("Zulrah") > 1);
+	}
+
+	@Test
+	public void noOrdinaryMonsterNameAppearsTwice()
+	{
+		Set<String> seen = new HashSet<>();
+
+		for (Monster monster : repository.all())
+		{
+			if (!monster.isBoss())
+			{
+				assertTrue("Two rows for " + monster.getName(), seen.add(monster.getName()));
+			}
+		}
+	}
+
+	private long countNamed(String name)
+	{
+		return repository.all().stream()
+			.filter(monster -> monster.getName().equalsIgnoreCase(name))
+			.count();
+	}
 }
