@@ -230,23 +230,6 @@ final class Cards
 	 */
 	static JPanel expandable(String title, JComponent content, Consumer<JButton> decorate)
 	{
-		return expandable(title, content, decorate, false, open ->
-		{
-		});
-	}
-
-	/**
-	 * As above, but for a section that lives inside results which are rebuilt as gear changes. Without
-	 * carrying the open state across a rebuild, the section would snap shut every time the player
-	 * changed a piece of equipment — while they were reading it.
-	 *
-	 * @param startOpen whether it opens expanded
-	 * @param onToggle  told whenever the player opens or closes it, so the caller can remember
-	 */
-	static JPanel expandable(
-		String title, JComponent content, Consumer<JButton> decorate, boolean startOpen,
-		Consumer<Boolean> onToggle)
-	{
 		JPanel section = new JPanel();
 		section.setLayout(new BoxLayout(section, BoxLayout.Y_AXIS));
 		section.setBackground(ColorScheme.DARK_GRAY_COLOR);
@@ -261,16 +244,14 @@ final class Cards
 		header.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
 		decorate.accept(header);
 
-		content.setVisible(startOpen);
+		content.setVisible(false);
 		content.setAlignmentX(Component.LEFT_ALIGNMENT);
-		header.setText(title + (startOpen ? "   −" : "   +"));
 
 		header.addActionListener(event ->
 		{
 			boolean opening = !content.isVisible();
 			content.setVisible(opening);
 			header.setText(title + (opening ? "   −" : "   +"));
-			onToggle.accept(opening);
 			section.revalidate();
 			section.repaint();
 		});

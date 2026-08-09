@@ -135,9 +135,6 @@ class BisTab extends JPanel
 	/** The weapon currently being looked at, or null for none. */
 	private SpecialAttack inspectedSpec;
 
-	/** Whether the spec section is open, carried across the rebuilds a gear change causes. */
-	private boolean specSectionOpen;
-
 	/** The last scored specs, kept so typing in the search can refilter without recomputing. */
 	private List<SpecSuggestion> shownSpecs = Collections.emptyList();
 
@@ -892,7 +889,7 @@ class BisTab extends JPanel
 		list.setBackground(ColorScheme.DARK_GRAY_COLOR);
 		list.setBorder(BorderFactory.createEmptyBorder(4, 0, 4, 0));
 
-		list.add(Cards.sectionLabel("Recommended"));
+		list.add(Cards.sectionLabel("Spec weapon"));
 
 		if (specs.isEmpty())
 		{
@@ -1021,14 +1018,11 @@ class BisTab extends JPanel
 
 		addSetup(top.getSetup());
 
-		// The spec belongs with the setup it is scored against, not up in the controls: swap a piece of
-		// gear and the right spec weapon can change with it.
+		// Shown outright rather than behind a header. It is a recommendation like the setup above it,
+		// and a recommendation you have to click to see is one most people never read.
 		showSpecs(specs);
 		results.add(Cards.gap(8));
-		results.add(Cards.expandable("Spec weapon", specContent,
-			header -> spriteManager.addSpriteTo(header, SpriteID.Staticons.ATTACK, 0),
-			specSectionOpen,
-			open -> specSectionOpen = open));
+		results.add(specContent);
 
 
 		if (best.size() > 1)
