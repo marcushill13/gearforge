@@ -47,6 +47,11 @@ public final class SpecDamage
 				DamageDistribution shot = DamageDistribution.roll(hitChance, maxHit);
 				return shot.plus(shot).plus(shot).plus(shot);
 			}
+			case GUARANTEED_RANGE:
+				// Dawnbringer: a flat band, unaffected by anything worn.
+				return DamageDistribution.uniform(75, 150);
+			case GUARANTEED_HIT:
+				return DamageDistribution.roll(1.0, maxHit);
 			case MAGIC_LEVEL_MAX:
 				return DamageDistribution.roll(hitChance, maxHit);
 			case TWO_HITS:

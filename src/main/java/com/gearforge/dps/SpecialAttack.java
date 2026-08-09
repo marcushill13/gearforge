@@ -210,7 +210,45 @@ public enum SpecialAttack
 
 	/** Reduces the target's Defence, and hits for a third of the Magic level less six. */
 	ACCURSED_SCEPTRE("Accursed sceptre", 50, Shape.DEFENCE_REDUCTION,
-		ItemID.WILD_CAVE_ACCURSED_CHARGED, 1.0, 1.0, 0.30);
+		ItemID.WILD_CAVE_ACCURSED_CHARGED, 1.0, 1.0, 0.30),
+
+	/** The blazing form of the blowpipe, with the same special. */
+	BLAZING_BLOWPIPE("Blazing blowpipe", 50, Shape.SINGLE_HIT,
+		ItemID.TOXIC_BLOWPIPE_LOADED_ORNAMENT, 2.0, 1.5),
+
+	/** Two darts at doubled accuracy and +50% damage. */
+	ROSEWOOD_BLOWPIPE("Rosewood blowpipe", 25, Shape.TWO_HITS, ItemID.ROSEWOOD_BLOWPIPE, 2.0, 1.5),
+
+	/** +30% damage on a weapon whose maximum already comes from the Magic level. */
+	EYE_OF_AYAK("Eye of ayak", 50, Shape.SINGLE_HIT, ItemID.EYE_OF_AYAK, 1.0, 1.3),
+
+	/** A guaranteed hit between 75 and 150, ignoring every bonus you are wearing. */
+	DAWNBRINGER("Dawnbringer", 30, Shape.GUARANTEED_RANGE, ItemID.VERZIK_SPECIAL_WEAPON),
+
+	/** Four accuracy rolls, in the manner of claws. */
+	CRIMSON_KISTEN("Crimson kisten", 50, Shape.CASCADE, ItemID.CRIMSON_KISTEN),
+
+	/** Demonbane: the special doubles the bonus against demons rather than adding damage. */
+	SCORCHING_BOW("Scorching bow", 25, Shape.SINGLE_HIT, ItemID.SCORCHING_BOW, 1.0, 1.0),
+
+	/** Demonbane, as the scorching bow is for ranged. */
+	PURGING_STAFF("Purging staff", 25, Shape.SINGLE_HIT, ItemID.PURGING_STAFF, 1.0, 1.0),
+
+	/**
+	 * Its damage climbs with the prayer points you are missing, which is live fight state rather than
+	 * anything about the weapon. Scored at full prayer, so it reads at its floor: bring it low and it
+	 * hits considerably harder than this says.
+	 */
+	ABYSSAL_BLUDGEON("Abyssal bludgeon", 50, Shape.SINGLE_HIT, ItemID.ABYSSAL_BLUDGEON, 1.0, 1.0),
+
+	/**
+	 * These three cannot miss, but their damage comes from the arrow alone and ignores the rest of your
+	 * gear. Only the guaranteed hit is modelled, so against a target you already hit reliably they read
+	 * high.
+	 */
+	MAGIC_LONGBOW("Magic longbow", 35, Shape.GUARANTEED_HIT, ItemID.MAGIC_LONGBOW),
+
+	SEERCULL("Seercull", 100, Shape.GUARANTEED_HIT, ItemID.DAGANOTH_CAVE_MAGIC_SHORTBOW);
 
 	/**
 	 * How the spec's damage is shaped. Each needs its own distribution; none of them is a multiplier
@@ -237,7 +275,13 @@ public enum SpecialAttack
 		 * The maximum comes from the Magic level and a per-weapon cap rather than from the spell, so
 		 * spell damage and magic damage bonuses play no part at all.
 		 */
-		MAGIC_LEVEL_MAX
+		MAGIC_LEVEL_MAX,
+
+		/** Cannot miss, and rolls between fixed bounds that ignore your gear entirely. */
+		GUARANTEED_RANGE,
+
+		/** Cannot miss; damage rolls as usual. */
+		GUARANTEED_HIT
 	}
 
 	private final String displayName;
@@ -364,6 +408,10 @@ public enum SpecialAttack
 				return energyCost + "% energy · 2 hits";
 			case FOUR_HITS:
 				return energyCost + "% energy · 4 hits";
+			case GUARANTEED_RANGE:
+				return energyCost + "% energy · always hits 75-150";
+			case GUARANTEED_HIT:
+				return energyCost + "% energy · always hits";
 			case MAGIC_LEVEL_MAX:
 				return energyCost + "% energy · up to " + magicLevelCap + " damage";
 			case SWEEP:
