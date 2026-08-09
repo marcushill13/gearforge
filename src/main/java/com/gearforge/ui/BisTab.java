@@ -120,8 +120,17 @@ class BisTab extends JPanel
 	 */
 	private final JPanel specContent = new JPanel();
 
-	/** Filters the spec list by name. Forty-five weapons is too many to scroll for one. */
+	/** How many owned spec weapons the recommendation shows before it stops being a recommendation. */
+	private static final int SPECS_SHOWN = 4;
+
+	/** Narrows the picker below it. Fifty-five weapons is far too many to scroll through. */
 	private final JTextField specSearch = new JTextField();
+
+	/** Picks one spec weapon to look at, owned or not. */
+	private final JComboBox<SpecialAttack> specPicker = Cards.comboBox(new SpecialAttack[0]);
+
+	/** The weapon currently being looked at, or null for none. */
+	private SpecialAttack inspectedSpec;
 
 	/** The last scored specs, kept so typing in the search can refilter without recomputing. */
 	private List<SpecSuggestion> shownSpecs = Collections.emptyList();
@@ -381,9 +390,23 @@ class BisTab extends JPanel
 			@Override
 			public void keyReleased(java.awt.event.KeyEvent event)
 			{
+				refillSpecPicker();
+			}
+		});
+
+		specPicker.setMaximumRowCount(12);
+		specPicker.addActionListener(event ->
+		{
+			SpecialAttack picked = (SpecialAttack) specPicker.getSelectedItem();
+			if (picked != inspectedSpec)
+			{
+				inspectedSpec = picked;
 				showSpecs(shownSpecs);
 			}
 		});
+		// Populate the picker up front; it was previously only filled on a keystroke, so it started empty.
+		refillSpecPicker();
+
 		controls.add(Cards.expandable("Spec weapon", specContent,
 			header -> spriteManager.addSpriteTo(header, SpriteID.Staticons.ATTACK, 0)));
 		controls.add(Cards.gap(8));
@@ -779,37 +802,90 @@ class BisTab extends JPanel
 		shownSpecs = specs;
 
 		specContent.removeAll();
-		specContent.add(Cards.field("Find a spec weapon", specSearch));
+		specContent.add(specList(owned(specs)));
+
+		specContent.add(Cards.gap(8));
+		specContent.add(Cards.sectionLabel("Compare any spec weapon"));
+		specContent.add(specSearch);
 		specContent.add(Cards.gap(4));
-		specContent.add(specList(matching(specs)));
+		specContent.add(specPicker);
+
+		if (inspectedSpec != null)
+		{
+			SpecSuggestion picked = suggestionFor(specs, inspectedSpec);
+			if (picked != null)
+			{
+				specContent.add(Cards.gap(4));
+				specContent.add(specRow(picked));
+			}
+		}
+
 		specContent.revalidate();
 		specContent.repaint();
 	}
 
 	/**
-	 * Filters by name. Matching on the weapon rather than the enum so that "bow" finds the dark bow and
-	 * the webweaver alike.
+	 * Only the weapons actually in the bank. This is the recommendation, and it has to stay short —
+	 * listing every special in the game here buried the panel.
 	 */
-	private List<SpecSuggestion> matching(List<SpecSuggestion> specs)
+	private static List<SpecSuggestion> owned(List<SpecSuggestion> specs)
 	{
-		String needle = specSearch.getText().trim().toLowerCase();
-		if (needle.isEmpty())
-		{
-			return specs;
-		}
-
-		List<SpecSuggestion> matches = new ArrayList<>();
+		List<SpecSuggestion> mine = new ArrayList<>();
 		for (SpecSuggestion suggestion : specs)
 		{
-			if (suggestion.getSpecial().getDisplayName().toLowerCase().contains(needle))
+			if (suggestion.isOwned())
 			{
-				matches.add(suggestion);
+				mine.add(suggestion);
 			}
 		}
 
-		return matches;
+		return mine.size() > SPECS_SHOWN ? mine.subList(0, SPECS_SHOWN) : mine;
 	}
 
+	private static SpecSuggestion suggestionFor(List<SpecSuggestion> specs, SpecialAttack special)
+	{
+		for (SpecSuggestion suggestion : specs)
+		{
+			if (suggestion.getSpecial() == special)
+			{
+				return suggestion;
+			}
+		}
+
+		return null;
+	}
+
+	/**
+	 * Rebuilds the picker to whatever the search matches, keeping the current selection if it survives.
+	 */
+	private void refillSpecPicker()
+	{
+		String needle = specSearch.getText().trim().toLowerCase();
+
+		DefaultComboBoxModel<SpecialAttack> model = new DefaultComboBoxModel<>();
+		for (SpecialAttack special : SpecialAttack.values())
+		{
+			if (needle.isEmpty() || special.getDisplayName().toLowerCase().contains(needle))
+			{
+				model.addElement(special);
+			}
+		}
+
+		specPicker.setModel(model);
+
+		if (inspectedSpec != null && model.getIndexOf(inspectedSpec) >= 0)
+		{
+			specPicker.setSelectedItem(inspectedSpec);
+		}
+		else if (model.getSize() > 0)
+		{
+			specPicker.setSelectedIndex(0);
+		}
+	}
+
+	/**
+	 * The recommendation: the spec weapons you actually own, best first.
+	 */
 	private JPanel specList(List<SpecSuggestion> specs)
 	{
 		JPanel list = new JPanel();
@@ -817,86 +893,78 @@ class BisTab extends JPanel
 		list.setBackground(ColorScheme.DARK_GRAY_COLOR);
 		list.setBorder(BorderFactory.createEmptyBorder(4, 0, 4, 0));
 
+		list.add(Cards.sectionLabel("In your bank"));
+
 		if (specs.isEmpty())
 		{
-			list.add(Cards.muted(specSearch.getText().trim().isEmpty()
-				? "No special attack weapons could be scored against this target."
-				: "No spec weapon matches that."));
+			list.add(Cards.muted("No special attack weapon in your bank could be scored against this "
+				+ "target. Use the picker below to see what one would be worth."));
 			return list;
 		}
 
 		for (SpecSuggestion suggestion : specs)
 		{
-			JPanel row = new JPanel(new BorderLayout(6, 0));
-			row.setBackground(ColorScheme.DARKER_GRAY_COLOR);
-			row.setBorder(BorderFactory.createEmptyBorder(5, 6, 5, 6));
-			row.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-			JLabel icon = new JLabel();
-			itemManager.getImage(suggestion.getWeapon().getItemId()).addTo(icon);
-			row.add(icon, BorderLayout.WEST);
-
-			JPanel text = new JPanel();
-			text.setLayout(new BoxLayout(text, BoxLayout.Y_AXIS));
-			text.setBackground(row.getBackground());
-
-			JLabel name = new JLabel(suggestion.getSpecial().getDisplayName());
-			name.setFont(FontManager.getRunescapeBoldFont());
-			name.setForeground(ColorScheme.LIGHT_GRAY_COLOR);
-			name.setAlignmentX(Component.LEFT_ALIGNMENT);
-			text.add(name);
-
-			text.add(Cards.body(suggestion.getSpecial().describe()));
-
-			if (suggestion.getNote() != null)
-			{
-				text.add(Cards.muted(suggestion.getNote()));
-			}
-
-			row.add(text, BorderLayout.CENTER);
-
-			// Specs that are not worth using here are still listed, just not dressed up as a
-			// recommendation. Owning a weapon should never look the same as not owning it.
-			boolean worthwhile = suggestion.getDamageAdded() >= 1;
-			JLabel added = new JLabel(worthwhile
-				? String.format("+%.0f", suggestion.getDamageAdded())
-				: "—");
-			added.setFont(FontManager.getRunescapeBoldFont());
-			added.setForeground(worthwhile ? ColorScheme.BRAND_ORANGE : Cards.mutedColor());
-
-			if (!suggestion.isOwned())
-			{
-				text.add(Cards.muted("Not in your bank"));
-			}
-			row.add(added, BorderLayout.EAST);
-
-			row.setMaximumSize(new Dimension(Integer.MAX_VALUE, row.getPreferredSize().height));
-			list.add(row);
+			list.add(specRow(suggestion));
 			list.add(Cards.gap(3));
 		}
 
-		boolean anyWorthwhile = specs.get(0).getDamageAdded() >= 1;
-		list.add(Cards.muted(anyWorthwhile
-			? "Damage each spec adds to the kill, using the setup above. Weapons you do not own are "
-				+ "scored too, so you can see what one would be worth before buying it."
+		list.add(Cards.muted(specs.get(0).getDamageAdded() >= 1
+			? "Damage each adds to the kill, using the setup above."
 			: "None of these beat just attacking this target. An accuracy special adds nothing to "
 				+ "something you already rarely miss — try a tougher target."));
+
 		return list;
 	}
 
 	/**
-	 * The weapons the spec section knows about, so an empty result says what it was looking for rather
-	 * than leaving the player guessing whether the feature works.
+	 * One spec weapon as a row. Shared by the recommendation and the picker below it.
 	 */
-	private static String knownSpecWeapons()
+	private JPanel specRow(SpecSuggestion suggestion)
 	{
-		List<String> names = new ArrayList<>();
-		for (SpecialAttack special : SpecialAttack.values())
+		JPanel row = new JPanel(new BorderLayout(6, 0));
+		row.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+		row.setBorder(BorderFactory.createEmptyBorder(5, 6, 5, 6));
+		row.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+		JLabel icon = new JLabel();
+		itemManager.getImage(suggestion.getWeapon().getItemId()).addTo(icon);
+		row.add(icon, BorderLayout.WEST);
+
+		JPanel text = new JPanel();
+		text.setLayout(new BoxLayout(text, BoxLayout.Y_AXIS));
+		text.setBackground(row.getBackground());
+
+		JLabel name = new JLabel(suggestion.getSpecial().getDisplayName());
+		name.setFont(FontManager.getRunescapeBoldFont());
+		name.setForeground(ColorScheme.LIGHT_GRAY_COLOR);
+		name.setAlignmentX(Component.LEFT_ALIGNMENT);
+		text.add(name);
+
+		text.add(Cards.body(suggestion.getSpecial().describe()));
+
+		if (suggestion.getNote() != null)
 		{
-			names.add(special.getDisplayName().toLowerCase());
+			text.add(Cards.muted(suggestion.getNote()));
 		}
 
-		return String.join(", ", names);
+		if (!suggestion.isOwned())
+		{
+			text.add(Cards.muted("Not in your bank"));
+		}
+
+		row.add(text, BorderLayout.CENTER);
+
+		// A spec that is not worth using here is still shown, just not dressed up as a recommendation.
+		boolean worthwhile = suggestion.getDamageAdded() >= 1;
+		JLabel added = new JLabel(worthwhile
+			? String.format("+%.0f", suggestion.getDamageAdded())
+			: "—");
+		added.setFont(FontManager.getRunescapeBoldFont());
+		added.setForeground(worthwhile ? ColorScheme.BRAND_ORANGE : Cards.mutedColor());
+		row.add(added, BorderLayout.EAST);
+
+		row.setMaximumSize(new Dimension(Integer.MAX_VALUE, row.getPreferredSize().height));
+		return row;
 	}
 
 	/**
