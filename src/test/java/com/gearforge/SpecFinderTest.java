@@ -3,7 +3,9 @@ package com.gearforge;
 import com.gearforge.data.EquipmentSlot;
 import com.gearforge.data.EquipmentStats;
 import com.gearforge.data.GearItem;
+import com.gearforge.data.ItemCategories;
 import com.gearforge.data.Storage;
+import com.google.gson.Gson;
 import com.gearforge.dps.CombatContext;
 import com.gearforge.dps.CombatStyle;
 import com.gearforge.dps.DpsEngine;
@@ -33,7 +35,7 @@ import static org.junit.Assert.assertTrue;
  */
 public class SpecFinderTest
 {
-	private final SpecFinder finder = new SpecFinder(new DpsEngine());
+	private final SpecFinder finder = new SpecFinder(new DpsEngine(), new ItemCategories(new Gson()));
 
 	private static final GearItem CLAWS = weapon(ItemID.DRAGON_CLAWS, "Dragon claws", 57, 56, 4);
 	private static final GearItem VOIDWAKER = weapon(ItemID.VOIDWAKER, "Voidwaker", 80, 80, 4);
@@ -124,6 +126,12 @@ public class SpecFinderTest
 	private List<SpecSuggestion> find(
 		Target target, int bodyStrength, int hitpoints, GearItem... specWeapons)
 	{
+		return find(target, bodyStrength, hitpoints, 99, specWeapons);
+	}
+
+	private List<SpecSuggestion> find(
+		Target target, int bodyStrength, int hitpoints, int magicLevel, GearItem... specWeapons)
+	{
 		Map<EquipmentSlot, GearItem> setup = new EnumMap<>(EquipmentSlot.class);
 		setup.put(EquipmentSlot.WEAPON, PLAIN);
 		setup.put(EquipmentSlot.BODY, body(bodyStrength));
@@ -137,6 +145,8 @@ public class SpecFinderTest
 		CombatContext context = CombatContext.builder()
 			.attackLevel(99)
 			.strengthLevel(99)
+			.rangedLevel(99)
+			.magicLevel(magicLevel)
 			.style(CombatStyle.SLASH)
 			.equipment(EquipmentStats.sum(pieces))
 			.target(target)
@@ -257,39 +267,58 @@ public class SpecFinderTest
 	}
 
 	/**
-	 * Every modelled special is a melee one, and the evaluator picks its attack style from stab, slash
-	 * and crush only. Adding a ranged or magic spec without teaching it the other styles would score
-	 * that weapon as though it were a sword — silently, and badly.
-	 * <p>
-	 * The list below is written out deliberately rather than derived from the enum, so that adding a
-	 * constant fails this test instead of quietly extending it.
+	 * A bow must roll ranged and a staff must roll magic. Scored as a sword, a dark bow would read its
+	 * strength bonus instead of its ranged strength and roll against the wrong defence — producing a
+	 * number that looks perfectly reasonable and is nonsense.
 	 */
 	@Test
-	public void everyModelledSpecialIsMelee()
+	public void aBowIsScoredAsRangedAndAStaffAsMagic()
 	{
-		Set<SpecialAttack> melee = EnumSet.of(
-			SpecialAttack.DRAGON_CLAWS, SpecialAttack.VOIDWAKER,
-			SpecialAttack.ARMADYL_GODSWORD, SpecialAttack.BANDOS_GODSWORD,
-			SpecialAttack.SARADOMIN_GODSWORD, SpecialAttack.ZAMORAK_GODSWORD,
-			SpecialAttack.DRAGON_DAGGER, SpecialAttack.ABYSSAL_DAGGER,
-			SpecialAttack.DRAGON_WARHAMMER, SpecialAttack.ELDER_MAUL,
-			SpecialAttack.DRAGON_SCIMITAR, SpecialAttack.ABYSSAL_WHIP,
-			SpecialAttack.DRAGON_LONGSWORD, SpecialAttack.DRAGON_MACE,
-			SpecialAttack.DRAGON_HALBERD, SpecialAttack.GRANITE_MAUL,
-			SpecialAttack.ARCLIGHT, SpecialAttack.DARKLIGHT,
-			SpecialAttack.CRYSTAL_HALBERD, SpecialAttack.OSMUMTENS_FANG,
-			SpecialAttack.ARKAN_BLADE, SpecialAttack.GRANITE_HAMMER,
-			SpecialAttack.BRINE_SABRE, SpecialAttack.BARRELCHEST_ANCHOR,
-			SpecialAttack.DRAGON_SWORD, SpecialAttack.SARADOMINS_BLESSED_SWORD,
-			SpecialAttack.SARADOMIN_SWORD, SpecialAttack.ANCIENT_GODSWORD,
-			SpecialAttack.EMBERLIGHT, SpecialAttack.BURNING_CLAWS,
-			SpecialAttack.DUAL_MACUAHUITL, SpecialAttack.SUNSPEAR);
+		GearItem darkBow = rangedWeapon(ItemID.DARKBOW, "Dark bow", 95, 9);
+		GearItem staff = magicWeapon(ItemID.NIGHTMARE_STAFF_VOLATILE, "Volatile nightmare staff");
 
-		for (SpecialAttack special : SpecialAttack.values())
-		{
-			assertTrue(special + " is not in the melee list. SpecFinder picks an attack style from stab, "
-					+ "slash and crush only, so a ranged or magic special would be scored as a sword.",
-				melee.contains(special));
-		}
+		// Both must produce a suggestion at all: a mis-styled weapon scores zero and vanishes.
+		assertFalse(find(Target.dummy(), 0, darkBow).isEmpty());
+		assertFalse(find(Target.dummy(), 0, staff).isEmpty());
+	}
+
+	/**
+	 * The Magic specials take their ceiling from the Magic level, not from the spell, so they must not
+	 * depend on spell damage at all.
+	 */
+	@Test
+	public void aMagicSpecialScalesWithMagicLevelRatherThanTheSpell()
+	{
+		GearItem volatileStaff = magicWeapon(ItemID.NIGHTMARE_STAFF_VOLATILE, "Volatile nightmare staff");
+
+		double atNinetyNine = valueOf(
+			find(Target.dummy(), 0, 300, 99, volatileStaff), SpecialAttack.VOLATILE_NIGHTMARE_STAFF);
+		double atFifty = valueOf(
+			find(Target.dummy(), 0, 300, 50, volatileStaff), SpecialAttack.VOLATILE_NIGHTMARE_STAFF);
+
+		assertTrue("A higher Magic level should raise the ceiling", atNinetyNine > atFifty);
+	}
+
+	private static GearItem rangedWeapon(int id, String name, int rangedAttack, int speed)
+	{
+		EquipmentStats stats = EquipmentStats.builder()
+			.arange(rangedAttack)
+			.rangedStrength(60)
+			.slot(EquipmentSlot.WEAPON.getSlotIndex())
+			.speed(speed)
+			.build();
+
+		return new GearItem(id, name, 1, stats, EnumSet.of(Storage.BANK));
+	}
+
+	private static GearItem magicWeapon(int id, String name)
+	{
+		EquipmentStats stats = EquipmentStats.builder()
+			.amagic(25)
+			.slot(EquipmentSlot.WEAPON.getSlotIndex())
+			.speed(4)
+			.build();
+
+		return new GearItem(id, name, 1, stats, EnumSet.of(Storage.BANK));
 	}
 }

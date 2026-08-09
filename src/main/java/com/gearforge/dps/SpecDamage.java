@@ -42,6 +42,13 @@ public final class SpecDamage
 				return cascade(hitChance, maxHit);
 			case GUARANTEED_HALF_TO_ONE_AND_A_HALF:
 				return DamageDistribution.uniform(maxHit / 2, maxHit * 3 / 2);
+			case FOUR_HITS:
+			{
+				DamageDistribution shot = DamageDistribution.roll(hitChance, maxHit);
+				return shot.plus(shot).plus(shot).plus(shot);
+			}
+			case MAGIC_LEVEL_MAX:
+				return DamageDistribution.roll(hitChance, maxHit);
 			case TWO_HITS:
 				return DamageDistribution.roll(hitChance, maxHit)
 					.plus(DamageDistribution.roll(hitChance, maxHit));

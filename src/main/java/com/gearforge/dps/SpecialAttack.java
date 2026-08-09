@@ -157,7 +157,60 @@ public enum SpecialAttack
 	DUAL_MACUAHUITL("Dual macuahuitl", 25, Shape.TWO_HITS, ItemID.DUAL_MACUAHUITL, 1.0, 1.0),
 
 	/** Demonbane, +50% accuracy on the special. */
-	SUNSPEAR("Sunspear", 50, Shape.SINGLE_HIT, ItemID.SUNSPEAR, 1.5, 1.0);
+	SUNSPEAR("Sunspear", 50, Shape.SINGLE_HIT, ItemID.SUNSPEAR, 1.5, 1.0),
+
+	// Ranged.
+
+	/** Doubled accuracy. */
+	ZARYTE_CROSSBOW("Zaryte crossbow", 75, Shape.SINGLE_HIT, ItemID.ZARYTE_XBOW, 2.0, 1.0),
+
+	/** Doubled accuracy and +50% damage. */
+	TOXIC_BLOWPIPE("Toxic blowpipe", 50, Shape.SINGLE_HIT, ItemID.TOXIC_BLOWPIPE, 2.0, 1.5),
+
+	/** Four shots at doubled accuracy, each for 40% of the usual maximum. */
+	WEBWEAVER_BOW("Webweaver bow", 50, Shape.FOUR_HITS, ItemID.WILD_CAVE_WEBWEAVER_CHARGED, 2.0, 0.4),
+
+	/** +25% accuracy and +25% damage. */
+	HEAVY_BALLISTA("Heavy ballista", 65, Shape.SINGLE_HIT, ItemID.HEAVY_BALLISTA, 1.25, 1.25),
+
+	/** +25% accuracy and +25% damage. */
+	LIGHT_BALLISTA("Light ballista", 65, Shape.SINGLE_HIT, ItemID.LIGHT_BALLISTA, 1.25, 1.25),
+
+	/**
+	 * Two arrows at +43% accuracy. Snapshot's max hit ignores offensive prayers, which is not modelled,
+	 * so this reads slightly high when praying.
+	 */
+	MAGIC_SHORTBOW("Magic shortbow", 55, Shape.TWO_HITS, ItemID.MAGIC_SHORTBOW, 10.0 / 7.0, 1.0),
+
+	/** The imbued form: the same shot for less energy. */
+	MAGIC_SHORTBOW_I("Magic shortbow (i)", 50, Shape.TWO_HITS, ItemID.MAGIC_SHORTBOW_I, 10.0 / 7.0, 1.0),
+
+	/**
+	 * Two arrows at +30% damage. Descent of Dragons also sets a minimum hit, which is not modelled, so
+	 * this reads a little low with dragon arrows.
+	 */
+	DARK_BOW("Dark bow", 55, Shape.TWO_HITS, ItemID.DARKBOW, 1.0, 1.3),
+
+	/** Two knives. */
+	DRAGON_KNIFE("Dragon knife", 25, Shape.TWO_HITS, ItemID.DRAGON_KNIFE, 1.0, 1.0),
+
+	/** +50% accuracy, each hit for three quarters of the usual maximum, and it can land twice. */
+	TONALZTICS_OF_RALOS("Tonalztics of ralos", 50, Shape.TWO_HITS,
+		ItemID.TONALZTICS_OF_RALOS_CHARGED, 1.5, 0.75),
+
+	// Magic. These set their own maximum from the Magic level and ignore spell damage entirely.
+
+	/** Caps at 44 damage, scaling with Magic level. */
+	ELDRITCH_NIGHTMARE_STAFF("Eldritch nightmare staff", 55, Shape.MAGIC_LEVEL_MAX,
+		ItemID.NIGHTMARE_STAFF_ELDRITCH, 44),
+
+	/** Caps at 58 damage, scaling with Magic level. */
+	VOLATILE_NIGHTMARE_STAFF("Volatile nightmare staff", 55, Shape.MAGIC_LEVEL_MAX,
+		ItemID.NIGHTMARE_STAFF_VOLATILE, 58),
+
+	/** Reduces the target's Defence, and hits for a third of the Magic level less six. */
+	ACCURSED_SCEPTRE("Accursed sceptre", 50, Shape.DEFENCE_REDUCTION,
+		ItemID.WILD_CAVE_ACCURSED_CHARGED, 1.0, 1.0, 0.30);
 
 	/**
 	 * How the spec's damage is shaped. Each needs its own distribution; none of them is a multiplier
@@ -175,7 +228,16 @@ public enum SpecialAttack
 		SWEEP,
 
 		/** Costs no attack turn, so it is a free hit rather than a replacement for one. */
-		INSTANT
+		INSTANT,
+
+		/** Four hits, as the webweaver fires. */
+		FOUR_HITS,
+
+		/**
+		 * The maximum comes from the Magic level and a per-weapon cap rather than from the spell, so
+		 * spell damage and magic damage bonuses play no part at all.
+		 */
+		MAGIC_LEVEL_MAX
 	}
 
 	private final String displayName;
@@ -186,9 +248,19 @@ public enum SpecialAttack
 	private final double damageMultiplier;
 	private final double defenceReduction;
 
+	/** Damage ceiling for a Magic special, reached at 99 Magic. Zero for everything else. */
+	private int magicLevelCap;
+
 	SpecialAttack(String displayName, int energyCost, Shape shape, int itemId)
 	{
 		this(displayName, energyCost, shape, itemId, 1.0, 1.0, 0.0);
+	}
+
+	/** For the Magic specials, whose damage is capped rather than multiplied. */
+	SpecialAttack(String displayName, int energyCost, Shape shape, int itemId, int magicLevelCap)
+	{
+		this(displayName, energyCost, shape, itemId, 1.0, 1.0, 0.0);
+		this.magicLevelCap = magicLevelCap;
 	}
 
 	SpecialAttack(
@@ -248,6 +320,11 @@ public enum SpecialAttack
 		return defenceReduction;
 	}
 
+	public int getMagicLevelCap()
+	{
+		return magicLevelCap;
+	}
+
 	public boolean reducesDefence()
 	{
 		return shape == Shape.DEFENCE_REDUCTION;
@@ -285,6 +362,10 @@ public enum SpecialAttack
 				return energyCost + "% energy · always hits";
 			case TWO_HITS:
 				return energyCost + "% energy · 2 hits";
+			case FOUR_HITS:
+				return energyCost + "% energy · 4 hits";
+			case MAGIC_LEVEL_MAX:
+				return energyCost + "% energy · up to " + magicLevelCap + " damage";
 			case SWEEP:
 				return energyCost + "% energy · 2 hits on large targets";
 			case INSTANT:

@@ -3,6 +3,7 @@ package com.gearforge.optimizer;
 import com.gearforge.data.EquipmentSlot;
 import com.gearforge.data.EquipmentStats;
 import com.gearforge.data.GearItem;
+import com.gearforge.data.ItemCategories;
 import com.gearforge.dps.CombatContext;
 import com.gearforge.dps.CombatStyle;
 import com.gearforge.dps.DamageDistribution;
@@ -40,11 +41,13 @@ import javax.inject.Singleton;
 public class SpecFinder
 {
 	private final DpsEngine engine;
+	private final ItemCategories itemCategories;
 
 	@Inject
-	public SpecFinder(DpsEngine engine)
+	public SpecFinder(DpsEngine engine, ItemCategories itemCategories)
 	{
 		this.engine = engine;
+		this.itemCategories = itemCategories;
 	}
 
 	/**
@@ -92,9 +95,10 @@ public class SpecFinder
 		SetupScore baseline,
 		double normalHit)
 	{
-		CombatStyle style = bestStyleFor(weapon);
+		CombatStyle style = styleFor(weapon);
 		CombatContext specContext = template.toBuilder()
 			.style(style)
+			.poweredStaff(style.isMagic())
 			.equipment(withWeapon(setup, weapon))
 			.weaponSpeedTicks(Math.max(1, weapon.getStats().getSpeed()))
 			.accuracyMultiplier(template.getAccuracyMultiplier() * special.getAccuracyMultiplier())
@@ -103,8 +107,14 @@ public class SpecFinder
 
 		SetupScore specScore = engine.score(specContext);
 		int targetSize = template.getTarget() == null ? 1 : template.getTarget().getSize();
+
+		// A Magic special ignores spell damage entirely: its ceiling comes from the Magic level.
+		int maxHit = special.getShape() == SpecialAttack.Shape.MAGIC_LEVEL_MAX
+			? magicLevelMaxHit(special, template.getMagicLevel() + template.getMagicBoost())
+			: specScore.getMaxHit();
+
 		DamageDistribution damage =
-			SpecDamage.of(special, specScore.getHitChance(), specScore.getMaxHit(), targetSize);
+			SpecDamage.of(special, specScore.getHitChance(), maxHit, targetSize);
 
 		// An instant special costs no attack turn, so it is a hit gained rather than a hit swapped.
 		double added = special.isInstant() ? damage.mean() : damage.mean() - normalHit;
@@ -160,6 +170,15 @@ public class SpecFinder
 	}
 
 	/**
+	 * The Magic specials scale their ceiling with Magic level and stop at a per-weapon cap.
+	 */
+	private static int magicLevelMaxHit(SpecialAttack special, int magicLevel)
+	{
+		int cap = special.getMagicLevelCap();
+		return Math.max(1, Math.min(cap, (99 + cap * magicLevel) / 99));
+	}
+
+	/**
 	 * The damage an ordinary attack of the current setup deals, which is what the spec replaces.
 	 */
 	private static double averageOrdinaryHit(SetupScore baseline)
@@ -192,11 +211,28 @@ public class SpecFinder
 	}
 
 	/**
-	 * Which attack style the spec rolls with — whichever the weapon is best at, since a player specs
-	 * on the weapon's own strength rather than the style they were already using.
+	 * Which attack style the spec rolls with.
+	 * <p>
+	 * The weapon decides, not the style you were already using — you spec on the weapon's own strength.
+	 * A bow rolls ranged, a staff rolls magic, and only then does the melee question of stab against
+	 * slash against crush arise.
+	 * <p>
+	 * Getting this wrong is not a small error: a dark bow scored as a sword would read its strength
+	 * bonus instead of its ranged strength and roll against the wrong defence, producing a number that
+	 * looks perfectly reasonable and is nonsense.
 	 */
-	private static CombatStyle bestStyleFor(GearItem weapon)
+	private CombatStyle styleFor(GearItem weapon)
 	{
+		if (itemCategories.suitsStyle(weapon.getItemId(), "RANGED"))
+		{
+			return CombatStyle.RANGED;
+		}
+
+		if (itemCategories.suitsStyle(weapon.getItemId(), "MAGIC"))
+		{
+			return CombatStyle.MAGIC;
+		}
+
 		EquipmentStats stats = weapon.getStats();
 		CombatStyle best = CombatStyle.SLASH;
 		int bonus = Integer.MIN_VALUE;
