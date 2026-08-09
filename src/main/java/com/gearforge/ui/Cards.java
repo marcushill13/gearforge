@@ -158,6 +158,20 @@ final class Cards
 	/**
 	 * Muted, wrapped text for reasons and caveats.
 	 */
+	/**
+	 * Muted text sized to sit inside a row that already has an icon on one side and a value on the
+	 * other. The full-width version forces the row wider than the panel, which pushes the value off the
+	 * edge entirely.
+	 */
+	static JLabel mutedInRow(String text)
+	{
+		JLabel label = new JLabel("<html><body style='width:100px'>" + escape(text) + "</body></html>");
+		label.setFont(FontManager.getRunescapeSmallFont());
+		label.setForeground(MUTED_TEXT);
+		label.setAlignmentX(Component.LEFT_ALIGNMENT);
+		return label;
+	}
+
 	static JLabel muted(String text)
 	{
 		JLabel label = new JLabel("<html><body style='width:145px'>" + escape(text) + "</body></html>");

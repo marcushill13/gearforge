@@ -396,6 +396,9 @@ class BisTab extends JPanel
 			}
 		});
 
+		specSearch.setAlignmentX(Component.LEFT_ALIGNMENT);
+		specSearch.setMaximumSize(new Dimension(Integer.MAX_VALUE, 24));
+
 		specPicker.setMaximumRowCount(12);
 		specPicker.addActionListener(event ->
 		{
@@ -920,7 +923,8 @@ class BisTab extends JPanel
 	{
 		JPanel row = new JPanel(new BorderLayout(6, 0));
 		row.setBackground(ColorScheme.DARKER_GRAY_COLOR);
-		row.setBorder(BorderFactory.createEmptyBorder(5, 6, 5, 6));
+		// Extra padding on the right so the value is not left sitting under the scrollbar.
+		row.setBorder(BorderFactory.createEmptyBorder(5, 6, 5, 6 + Cards.SCROLLBAR_ALLOWANCE));
 		row.setAlignmentX(Component.LEFT_ALIGNMENT);
 
 		JLabel icon = new JLabel();
@@ -941,12 +945,12 @@ class BisTab extends JPanel
 
 		if (suggestion.getNote() != null)
 		{
-			text.add(Cards.muted(suggestion.getNote()));
+			text.add(Cards.mutedInRow(suggestion.getNote()));
 		}
 
 		if (!suggestion.isOwned())
 		{
-			text.add(Cards.muted("Not in your bank"));
+			text.add(Cards.mutedInRow("Not in your bank"));
 		}
 
 		row.add(text, BorderLayout.CENTER);
