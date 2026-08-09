@@ -306,9 +306,14 @@ public class BankFilterService
 
 			ids.add(requirement.getItemId());
 
-			// Only variants actually owned. Tagging the whole family put a slot in the bank for every
-			// charge state of a skills necklace, five of which the player has never had.
-			if (requirement.isFuzzy())
+			// Variants are a fallback, not an addition. Tagging the whole family put all six charge
+			// states of a skills necklace in the tag, and Bank Tags then appended every tagged item the
+			// layout had no place for — which is how they ended up baked into the saved layout.
+			//
+			// So: only look for a stand-in when the exact item is not owned, and only accept one that
+			// actually is. A degraded Barrows piece still stands in for the undegraded one; a necklace
+			// you are holding brings nothing else with it.
+			if (requirement.isFuzzy() && !owned.containsKey(requirement.getItemId()))
 			{
 				for (int variant : canonicalizer.variantsOf(requirement.getItemId()))
 				{
@@ -334,6 +339,11 @@ public class BankFilterService
 		{
 			return;
 		}
+
+		// Drop the previous layout first. Bank Tags appends tagged items a layout has no place for, so
+		// an older, wider tag leaves its extras behind permanently unless the layout is replaced
+		// outright.
+		layoutManager.removeLayout(TAG);
 
 		int[] positions = new int[LAYOUT_SIZE];
 		Arrays.fill(positions, EMPTY);

@@ -18,8 +18,26 @@ public final class SpecDamage
 	 */
 	public static DamageDistribution of(SpecialAttack special, double hitChance, int maxHit)
 	{
+		return of(special, hitChance, maxHit, 1);
+	}
+
+	/**
+	 * @param targetSize tiles across, which decides whether a halberd's second hit lands
+	 */
+	public static DamageDistribution of(
+		SpecialAttack special, double hitChance, int maxHit, int targetSize)
+	{
 		switch (special.getShape())
 		{
+			case SWEEP:
+			{
+				DamageDistribution first = DamageDistribution.roll(hitChance, maxHit);
+				// The second swing only reaches something bigger than a single tile, and lands less
+				// often when it does.
+				return targetSize > 1
+					? first.plus(DamageDistribution.roll(hitChance * 0.75, maxHit))
+					: first;
+			}
 			case CASCADE:
 				return cascade(hitChance, maxHit);
 			case GUARANTEED_HALF_TO_ONE_AND_A_HALF:

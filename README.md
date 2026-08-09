@@ -6,6 +6,8 @@ GearForge reads your bank once and then answers the question you actually have: 
 which is best for this slot?* It pairs well with **Auto Bank Sorter** and **Bank Tags** rather than
 replacing them — GearForge is about combat gear, not bank organisation.
 
+**[Join the Discord](https://discord.gg/btPFSMWMN6)** for support, suggestions and bug reports.
+
 ## Current state
 
 All four surfaces work today:

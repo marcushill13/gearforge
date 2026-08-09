@@ -7,6 +7,7 @@ import com.gearforge.dps.CombatContext;
 import com.gearforge.dps.CombatStyle;
 import com.gearforge.dps.DamageDistribution;
 import com.gearforge.dps.DpsEngine;
+import com.gearforge.dps.MonsterAttribute;
 import com.gearforge.dps.SpecDamage;
 import com.gearforge.dps.SpecialAttack;
 import com.gearforge.dps.SetupScore;
@@ -101,10 +102,12 @@ public class SpecFinder
 			.build();
 
 		SetupScore specScore = engine.score(specContext);
+		int targetSize = template.getTarget() == null ? 1 : template.getTarget().getSize();
 		DamageDistribution damage =
-			SpecDamage.of(special, specScore.getHitChance(), specScore.getMaxHit());
+			SpecDamage.of(special, specScore.getHitChance(), specScore.getMaxHit(), targetSize);
 
-		double added = damage.mean() - normalHit;
+		// An instant special costs no attack turn, so it is a hit gained rather than a hit swapped.
+		double added = special.isInstant() ? damage.mean() : damage.mean() - normalHit;
 		String note = null;
 
 		if (special.reducesDefence())
@@ -137,7 +140,10 @@ public class SpecFinder
 			return 0;
 		}
 
-		int reducedDefence = (int) Math.floor(target.getDefenceLevel() * (1 - special.getDefenceReduction()));
+		boolean demon = target.getAttributes() != null
+			&& target.getAttributes().contains(MonsterAttribute.DEMON);
+		double fraction = special.defenceReductionAgainst(demon);
+		int reducedDefence = (int) Math.floor(target.getDefenceLevel() * (1 - fraction));
 		CombatContext reduced = template.toBuilder()
 			.target(target.toBuilder().defenceLevel(reducedDefence).build())
 			.build();

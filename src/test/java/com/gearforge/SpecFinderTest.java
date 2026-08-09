@@ -194,4 +194,43 @@ public class SpecFinderTest
 
 		return new GearItem(id, name, 1, stats, EnumSet.of(Storage.BANK));
 	}
+
+	/**
+	 * A halberd's second swing only reaches something bigger than one tile, so the same spec is worth
+	 * more on a large boss than on a person-sized one.
+	 */
+	@Test
+	public void theHalberdSweepIsWorthMoreOnALargeTarget()
+	{
+		GearItem halberd = weapon(ItemID.DRAGON_HALBERD, "Dragon halberd", 70, 70, 7);
+
+		double small = valueOf(find(sized(1), 0, halberd), SpecialAttack.DRAGON_HALBERD);
+		double large = valueOf(find(sized(3), 0, halberd), SpecialAttack.DRAGON_HALBERD);
+
+		assertTrue("The second hit should only land on a large target", large > small);
+	}
+
+	/**
+	 * An instant special costs no attack turn, so it is a hit gained rather than a hit swapped — it
+	 * must never score as worthless just because it has no damage boost.
+	 */
+	@Test
+	public void anInstantSpecialCountsAsAWholeExtraHit()
+	{
+		GearItem maul = weapon(ItemID.GRANITE_MAUL, "Granite maul", 81, 79, 7);
+
+		double added = valueOf(find(Target.dummy(), 0, maul), SpecialAttack.GRANITE_MAUL);
+
+		assertTrue("A free hit is worth roughly a hit, not nothing", added > 1);
+	}
+
+	private static Target sized(int size)
+	{
+		return Target.builder()
+			.name("Sized")
+			.defenceLevel(100)
+			.size(size)
+			.defensiveBonuses(EquipmentStats.builder().dslash(50).dstab(50).dcrush(50).build())
+			.build();
+	}
 }

@@ -86,7 +86,34 @@ public enum SpecialAttack
 	DRAGON_SCIMITAR("Dragon scimitar", 55, Shape.SINGLE_HIT, ItemID.DRAGON_SCIMITAR, 1.25, 1.0),
 
 	/** Energy Drain. One hit at +25% accuracy; the run-energy siphon is PvP only. */
-	ABYSSAL_WHIP("Abyssal whip", 50, Shape.SINGLE_HIT, ItemID.ABYSSAL_WHIP, 1.25, 1.0);
+	ABYSSAL_WHIP("Abyssal whip", 50, Shape.SINGLE_HIT, ItemID.ABYSSAL_WHIP, 1.25, 1.0),
+
+	/** Cleave. One hit at +25% damage, rolled against slash defence. */
+	DRAGON_LONGSWORD("Dragon longsword", 25, Shape.SINGLE_HIT, ItemID.DRAGON_LONGSWORD, 1.0, 1.25),
+
+	/** Shatter. One hit at +25% accuracy and +50% damage, rolled against crush defence. */
+	DRAGON_MACE("Dragon mace", 25, Shape.SINGLE_HIT, ItemID.DRAGON_MACE, 1.25, 1.5),
+
+	/**
+	 * Sweep. +10% damage, and against anything bigger than one tile a second hit lands at 25% lower
+	 * accuracy — so it is worth noticeably more on a large boss than on a person-sized one.
+	 */
+	DRAGON_HALBERD("Dragon halberd", 30, Shape.SWEEP, ItemID.DRAGON_HALBERD, 1.0, 1.1),
+
+	/**
+	 * Quick Smash. No accuracy or damage boost at all: it is an instant attack that costs you no turn,
+	 * so its worth is a whole extra hit rather than a better one.
+	 */
+	GRANITE_MAUL("Granite maul", 60, Shape.INSTANT, ItemID.GRANITE_MAUL, 1.0, 1.0),
+
+	/**
+	 * Weaken. Drains Defence by 5% of the base level, doubled against demons, which is where this
+	 * weapon is taken in the first place.
+	 */
+	ARCLIGHT("Arclight", 50, Shape.DEFENCE_REDUCTION, ItemID.ARCLIGHT, 1.0, 1.0, 0.05),
+
+	/** The pre-upgrade form, with identical mechanics. */
+	DARKLIGHT("Darklight", 50, Shape.DEFENCE_REDUCTION, ItemID.DARKLIGHT, 1.0, 1.0, 0.05);
 
 	/**
 	 * How the spec's damage is shaped. Each needs its own distribution; none of them is a multiplier
@@ -98,7 +125,13 @@ public enum SpecialAttack
 		TWO_HITS,
 		CASCADE,
 		GUARANTEED_HALF_TO_ONE_AND_A_HALF,
-		DEFENCE_REDUCTION
+		DEFENCE_REDUCTION,
+
+		/** A second hit lands only if the target is bigger than one tile. */
+		SWEEP,
+
+		/** Costs no attack turn, so it is a free hit rather than a replacement for one. */
+		INSTANT
 	}
 
 	private final String displayName;
@@ -177,6 +210,25 @@ public enum SpecialAttack
 	}
 
 	/**
+	 * Whether the special costs no attack turn. Such a spec adds a whole hit rather than replacing the
+	 * one you would have thrown anyway, so it is scored without deducting the ordinary attack.
+	 */
+	public boolean isInstant()
+	{
+		return shape == Shape.INSTANT;
+	}
+
+	/**
+	 * Arclight and Darklight drain twice as hard against demons, which is the only reason to bring
+	 * them. Everything else ignores what it is hitting.
+	 */
+	public double defenceReductionAgainst(boolean demon)
+	{
+		boolean demonbane = this == ARCLIGHT || this == DARKLIGHT;
+		return demon && demonbane ? defenceReduction * 2 : defenceReduction;
+	}
+
+	/**
 	 * A short plain-language note for the panel, so a recommendation always says why.
 	 */
 	public String describe()
@@ -189,6 +241,10 @@ public enum SpecialAttack
 				return energyCost + "% energy · always hits";
 			case TWO_HITS:
 				return energyCost + "% energy · 2 hits";
+			case SWEEP:
+				return energyCost + "% energy · 2 hits on large targets";
+			case INSTANT:
+				return energyCost + "% energy · instant, costs no turn";
 			case DEFENCE_REDUCTION:
 				return energyCost + "% energy · -"
 					+ Math.round(defenceReduction * 100) + "% defence";
