@@ -20,13 +20,13 @@ import net.runelite.client.game.ItemVariationMapping;
 public enum PoweredStaff
 {
 	/** A third of the Magic level, less five. */
-	TRIDENT_OF_THE_SEAS(ItemID.TOTS_CHARGED, ItemID.TOTS),
+	TRIDENT_OF_THE_SEAS(ItemID.TOTS_CHARGED, ItemID.TOTS, 22288, 22290),
 
 	/** The toxic form, less two rather than less five. */
-	TRIDENT_OF_THE_SWAMP(ItemID.TOXIC_TOTS_CHARGED),
+	TRIDENT_OF_THE_SWAMP(ItemID.TOXIC_TOTS_CHARGED, 22292, 22294),
 
 	/** A clean third of the Magic level. */
-	SANGUINESTI_STAFF(ItemID.SANGUINESTI_STAFF, ItemID.SANGUINESTI_STAFF_UNCHARGED),
+	SANGUINESTI_STAFF(ItemID.SANGUINESTI_STAFF, ItemID.SANGUINESTI_STAFF_UNCHARGED, 25731, 25733),
 
 	/** A third of the level plus one, the strongest of them. */
 	TUMEKENS_SHADOW(ItemID.TUMEKENS_SHADOW),
@@ -38,7 +38,7 @@ public enum PoweredStaff
 	THAMMARONS_SCEPTRE(22555, 22552),
 
 	/** A third less six, and it lowers the target's Defence on its special. */
-	ACCURSED_SCEPTRE(27665, 27662),
+	ACCURSED_SCEPTRE(27665, 27662, 27679, 27676),
 
 	/** A third less six, like the accursed. */
 	EYE_OF_AYAK(31113, 31115),

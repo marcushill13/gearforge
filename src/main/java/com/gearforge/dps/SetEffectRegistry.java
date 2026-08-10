@@ -46,6 +46,14 @@ public class SetEffectRegistry
 	private static final int SALVE_AMULET_I = ItemID.NZONE_SALVE_AMULET;
 	private static final int SALVE_AMULET_EI = ItemID.NZONE_SALVE_AMULET_E;
 
+	/** The plain and enchanted forms, which help melee only. */
+	private static final int SALVE_AMULET = 4081;
+	private static final int SALVE_AMULET_E = 10588;
+
+	/** Every imbued salve, including the Soul Wars and Emir's Arena copies. */
+	private static final int[] SALVE_I_IDS = {12017, 25250, 26763};
+	private static final int[] SALVE_EI_IDS = {12018, 25278, 26782};
+
 	private static final int BLACK_MASK_I = ItemID.NZONE_BLACK_MASK;
 	private static final int SLAYER_HELM_I = ItemID.SLAYER_HELM_I;
 
@@ -76,6 +84,9 @@ public class SetEffectRegistry
 
 	/** Efaritay's aid. Resolved from the equipment dataset, which carries names the id constants do not. */
 	private static final int EFARITAYS_AID = 21140;
+
+	/** The dyed silverlight behaves exactly as the plain one does. */
+	private static final int SILVERLIGHT_DYED = 6745;
 
 	private static final int TOME_OF_WATER = 25574;
 	private static final int BRIMSTONE_RING = 22975;
@@ -134,6 +145,16 @@ public class SetEffectRegistry
 		ids.add(ELITE_VOID_ROBES);
 		ids.add(SALVE_AMULET_I);
 		ids.add(SALVE_AMULET_EI);
+		ids.add(SALVE_AMULET);
+		ids.add(SALVE_AMULET_E);
+		for (int id : SALVE_I_IDS)
+		{
+			ids.add(id);
+		}
+		for (int id : SALVE_EI_IDS)
+		{
+			ids.add(id);
+		}
 		ids.add(BLACK_MASK_I);
 		ids.add(SLAYER_HELM_I);
 		ids.add(DRAGON_HUNTER_LANCE);
@@ -282,7 +303,7 @@ public class SetEffectRegistry
 				return 1.70;
 			}
 
-			if (ids.contains(DARKLIGHT) || ids.contains(SILVERLIGHT))
+			if (ids.contains(DARKLIGHT) || ids.contains(SILVERLIGHT) || ids.contains(SILVERLIGHT_DYED))
 			{
 				notes.add(ids.contains(DARKLIGHT)
 					? "Darklight: target is demonic"
@@ -677,6 +698,19 @@ public class SetEffectRegistry
 		return Math.min(cap, Math.max(target.getMagicLevel(), target.getMagicAttack()));
 	}
 
+	private static boolean containsAny(Set<Integer> ids, int[] candidates)
+	{
+		for (int candidate : candidates)
+		{
+			if (ids.contains(candidate))
+			{
+				return true;
+			}
+		}
+
+		return false;
+	}
+
 	/**
 	 * The twisted bow's scaling curve, returned as a multiplier.
 	 * <p>
@@ -758,17 +792,31 @@ public class SetEffectRegistry
 			return 1.0;
 		}
 
-		if (ids.contains(SALVE_AMULET_EI))
+		if (containsAny(ids, SALVE_EI_IDS))
 		{
 			notes.add("Salve (ei): target is undead");
 			return 1.2;
 		}
 
-		if (ids.contains(SALVE_AMULET_I))
+		if (containsAny(ids, SALVE_I_IDS))
 		{
 			double multiplier = style.isMagic() ? 1.15 : SEVEN_SIXTHS;
 			notes.add("Salve (i): target is undead");
 			return multiplier;
+		}
+
+		// The unimbued forms work on melee alone, and were missing entirely — which is the pair most
+		// players actually own.
+		if (style.isMelee() && ids.contains(SALVE_AMULET_E))
+		{
+			notes.add("Salve (e): target is undead");
+			return 1.2;
+		}
+
+		if (style.isMelee() && ids.contains(SALVE_AMULET))
+		{
+			notes.add("Salve amulet: target is undead");
+			return SEVEN_SIXTHS;
 		}
 
 		return 1.0;

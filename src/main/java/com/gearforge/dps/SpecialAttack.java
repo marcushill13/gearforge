@@ -139,7 +139,7 @@ public enum SpecialAttack
 
 	/** +25% damage. */
 	SARADOMINS_BLESSED_SWORD("Saradomin's blessed sword", 65, Shape.SINGLE_HIT,
-		ItemID.BLESSED_SARADOMIN_SWORD_DEGRADED, 1.0, 1.25),
+		12808, 1.0, 1.25),
 
 	/** +10% damage, at the price of the whole bar. */
 	SARADOMIN_SWORD("Saradomin sword", 100, Shape.SINGLE_HIT, ItemID.SARADOMIN_SWORD, 1.0, 1.1),
