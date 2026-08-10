@@ -8,6 +8,7 @@ import com.gearforge.dps.CombatContext;
 import com.gearforge.dps.BoltEffect;
 import com.gearforge.dps.CombatStyle;
 import com.gearforge.dps.DpsEngine;
+import com.gearforge.dps.PoweredStaff;
 import com.gearforge.dps.SetEffectRegistry;
 import com.gearforge.dps.SetEffects;
 import com.gearforge.dps.SetupScore;

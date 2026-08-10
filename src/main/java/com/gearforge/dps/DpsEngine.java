@@ -171,9 +171,18 @@ public class DpsEngine
 		int base;
 		if (context.getStyle().isMagic())
 		{
-			// Only the core case. The full modifier chain (shadow, tomes, salve, prayer) is set
-			// effect work and layers on top of this.
-			base = (int) Math.floor(context.getBaseSpellDamage() * (1.0 + equipment.getMagicDamage() / 100.0));
+			PoweredStaff staff = context.getPoweredStaffType();
+
+			// A powered staff has its own attack and casts nothing, so a spell's damage is not its
+			// starting point. Assuming Ice Barrage for these scored a trident on a spell it cannot cast.
+			int spellDamage = staff == null
+				? context.getBaseSpellDamage()
+				: staff.maxHit(context.getMagicLevel() + context.getMagicBoost());
+
+			double magicBonus = equipment.getMagicDamage() / 100.0
+				* (staff == null ? 1.0 : staff.magicDamageMultiplier());
+
+			base = (int) Math.floor(spellDamage * (1.0 + magicBonus));
 		}
 		else
 		{

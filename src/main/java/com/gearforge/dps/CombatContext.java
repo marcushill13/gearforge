@@ -56,6 +56,12 @@ public class CombatContext
 	 */
 	BoltEffect boltEffect;
 
+	/**
+	 * The powered staff held, if any. These carry their own attack rather than casting a spell, so
+	 * their maximum comes from the Magic level and not from {@code baseSpellDamage}.
+	 */
+	PoweredStaff poweredStaffType;
+
 	/** A zaryte crossbow strengthens every bolt effect, so the engine has to know it is held. */
 	boolean zaryteCrossbow;
 
