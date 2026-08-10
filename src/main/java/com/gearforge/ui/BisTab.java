@@ -12,6 +12,7 @@ import com.gearforge.data.Monster;
 import com.gearforge.data.MonsterRepository;
 import com.gearforge.data.PlayerLevels;
 import com.gearforge.data.PlayerModel;
+import com.gearforge.data.Reachability;
 import com.gearforge.data.Storage;
 import com.gearforge.dps.CombatContext;
 import com.gearforge.dps.CombatPrayer;
@@ -565,6 +566,12 @@ class BisTab extends JPanel
 			Map<CombatStyle, ScoredSetup> byStyle = new LinkedHashMap<>();
 			for (CombatStyle style : OFFENSIVE_STYLES)
 			{
+				// A style that cannot reach the target is not a worse answer, it is not an answer.
+				if (target != null && !Reachability.canAttack(target, style))
+				{
+					continue;
+				}
+
 				List<ScoredSetup> best = dpsOptimizer.best(
 					pooled, contextFor(Profile.forStyle(style), levels, target, prayer, potion), slayerTask, 1);
 
@@ -578,6 +585,12 @@ class BisTab extends JPanel
 		}
 		else if (profile.isOffensive())
 		{
+			if (target != null && !Reachability.canAttack(target, profile.getStyle()))
+			{
+				SwingUtilities.invokeLater(() -> showMessage(Reachability.reason(target)));
+				return;
+			}
+
 			CombatContext context = contextFor(profile, levels, target, prayer, potion);
 			List<ScoredSetup> best = dpsOptimizer.best(pooled, context, slayerTask, 3);
 			List<SpecSuggestion> specs = specsFor(best, everySpecWeapon, context);

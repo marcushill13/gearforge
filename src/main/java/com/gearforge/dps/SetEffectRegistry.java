@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Set;
 import javax.inject.Singleton;
 import net.runelite.api.gameval.ItemID;
+import net.runelite.client.game.ItemVariationMapping;
 
 /**
  * Item effects that depend on the whole setup and the target, not on one slot.
@@ -61,6 +62,12 @@ public class SetEffectRegistry
 	private static final int LEAF_BLADED_BATTLEAXE = ItemID.LEAFBLADED_BATTLEAXE;
 
 	private static final int TWISTED_BOW = ItemID.TWISTED_BOW;
+
+	private static final int CRYSTAL_HELM = ItemID.CRYSTAL_HELMET;
+	private static final int CRYSTAL_BODY = ItemID.CRYSTAL_CHESTPLATE;
+	private static final int CRYSTAL_LEGS = ItemID.CRYSTAL_PLATELEGS;
+	private static final int CRYSTAL_BOW = ItemID.CRYSTAL_BOW;
+	private static final int BOW_OF_FAERDHINEN = ItemID.BOW_OF_FAERDHINEN;
 
 	private static final int INQUISITORS_HELM = ItemID.INQUISITORS_HELM;
 	private static final int INQUISITORS_BODY = ItemID.INQUISITORS_BODY;
@@ -155,6 +162,10 @@ public class SetEffectRegistry
 		double inquisitor = inquisitorMultiplier(ids, style, notes);
 		accuracy *= inquisitor;
 		damage *= inquisitor;
+
+		double[] crystal = crystalArmour(ids, style, notes);
+		accuracy *= crystal[0];
+		damage *= crystal[1];
 
 		// The twisted bow is a bow: its scaling applies to its own shots, not to spells.
 		if (style.isRanged() && ids.contains(TWISTED_BOW))
@@ -300,6 +311,80 @@ public class SetEffectRegistry
 	 * hauberk and plateskirt, applied as {@code (200 + n) / 200} to both accuracy and damage. The full
 	 * set therefore gives 2.5%, but two pieces are still worth wearing.
 	 */
+	/**
+	 * Crystal armour, which does nothing at all unless a crystal bow or a bow of faerdhinen is drawn.
+	 * <p>
+	 * Each piece carries its own bonus and they add rather than multiply: the helmet is worth 5%
+	 * accuracy and 2.5% damage, the body 15% and 7.5%, the legs 10% and 5%. The full set is +30%
+	 * accuracy and +15% damage, which is most of the reason the bow is worth using at all.
+	 * <p>
+	 * Leaving this out made the optimizer pick rune knives with a shield over a bow of faerdhinen,
+	 * because without the set the bow is just a two-hander that costs you the shield slot.
+	 *
+	 * @return accuracy and damage multipliers, both 1.0 when the set does not apply
+	 */
+	private static double[] crystalArmour(Set<Integer> ids, CombatStyle style, List<String> notes)
+	{
+		if (!style.isRanged() || !(wearingFamily(ids, CRYSTAL_BOW) || wearingFamily(ids, BOW_OF_FAERDHINEN)))
+		{
+			return new double[]{1.0, 1.0};
+		}
+
+		double accuracy = 0;
+		double damage = 0;
+		int pieces = 0;
+
+		if (wearingFamily(ids, CRYSTAL_HELM))
+		{
+			accuracy += 0.05;
+			damage += 0.025;
+			pieces++;
+		}
+
+		if (wearingFamily(ids, CRYSTAL_BODY))
+		{
+			accuracy += 0.15;
+			damage += 0.075;
+			pieces++;
+		}
+
+		if (wearingFamily(ids, CRYSTAL_LEGS))
+		{
+			accuracy += 0.10;
+			damage += 0.05;
+			pieces++;
+		}
+
+		if (pieces == 0)
+		{
+			return new double[]{1.0, 1.0};
+		}
+
+		notes.add(pieces == 3
+			? "Crystal armour: full set with a crystal bow"
+			: "Crystal armour: " + pieces + " of 3 pieces with a crystal bow");
+
+		return new double[]{1 + accuracy, 1 + damage};
+	}
+
+	/**
+	 * Whether any worn item belongs to the same variant family as this one. Crystal gear arrives in a
+	 * charge state per piece and a colour per clan, and every one of them behaves identically.
+	 */
+	private static boolean wearingFamily(Set<Integer> ids, int exemplar)
+	{
+		int family = ItemVariationMapping.map(exemplar);
+		for (int id : ids)
+		{
+			if (id == exemplar || ItemVariationMapping.map(id) == family)
+			{
+				return true;
+			}
+		}
+
+		return false;
+	}
+
 	private double inquisitorMultiplier(Set<Integer> ids, CombatStyle style, List<String> notes)
 	{
 		if (style != CombatStyle.CRUSH)
