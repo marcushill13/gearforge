@@ -5,6 +5,7 @@ import com.gearforge.data.EquipmentStats;
 import com.gearforge.data.GearItem;
 import com.gearforge.data.ItemCategories;
 import com.gearforge.dps.CombatContext;
+import com.gearforge.dps.BoltEffect;
 import com.gearforge.dps.CombatStyle;
 import com.gearforge.dps.DpsEngine;
 import com.gearforge.dps.SetEffectRegistry;
@@ -23,6 +24,7 @@ import java.util.Set;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
 import javax.inject.Singleton;
+import net.runelite.api.gameval.ItemID;
 
 /**
  * Finds the highest-DPS setup from what the player owns.

@@ -36,7 +36,7 @@ public class DpsEngine
 		int speedTicks = context.getWeaponSpeedTicks() <= 0 ? 0 : attackSpeedTicks(context);
 		double dps = speedTicks <= 0
 			? 0.0
-			: averageDamage(hitChance, maxHit) / (speedTicks * TICK_SECONDS);
+			: damagePerAttack(context, hitChance, maxHit) / (speedTicks * TICK_SECONDS);
 
 		return SetupScore.builder()
 			.dps(dps)
@@ -48,6 +48,31 @@ public class DpsEngine
 			.effectiveStrengthLevel(effectiveStrength)
 			.attackSpeedTicks(speedTicks)
 			.build();
+	}
+
+	/**
+	 * What one attack deals on average, including anything that cannot be written as a multiplier.
+	 * <p>
+	 * For an ordinary attack this is the closed-form average exactly. An enchanted bolt is not
+	 * ordinary: it fires a fraction of the time, often ignores defence, and sometimes rolls its own
+	 * damage instead of yours, so it has to be applied to the distribution.
+	 */
+	private double damagePerAttack(CombatContext context, double hitChance, int maxHit)
+	{
+		BoltEffect bolt = context.getBoltEffect();
+		if (bolt == null)
+		{
+			return averageDamage(hitChance, maxHit);
+		}
+
+		DamageDistribution shot = DamageDistribution.roll(hitChance, maxHit);
+		return bolt.apply(
+			shot,
+			effectiveStrengthLevel(context),
+			maxHit,
+			context.getTarget(),
+			context.getTargetHitpoints(),
+			context.isZaryteCrossbow()).mean();
 	}
 
 	/**

@@ -50,6 +50,16 @@ public class CombatContext
 	int targetHitpoints;
 
 	/**
+	 * The enchanted bolt loaded, if any. Its effect cannot be folded into a multiplier — it fires a
+	 * fraction of the time and often ignores defence — so the engine applies it to the damage
+	 * distribution instead.
+	 */
+	BoltEffect boltEffect;
+
+	/** A zaryte crossbow strengthens every bolt effect, so the engine has to know it is held. */
+	boolean zaryteCrossbow;
+
+	/**
 	 * Whether the magic attack comes from a powered staff. Only powered staves get a style bonus to
 	 * effective magic level; a spellbook cast gets none.
 	 */
