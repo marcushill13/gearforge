@@ -77,6 +77,9 @@ public class SetEffectRegistry
 	/** Efaritay's aid. Resolved from the equipment dataset, which carries names the id constants do not. */
 	private static final int EFARITAYS_AID = 21140;
 
+	private static final int TOME_OF_WATER = 25574;
+	private static final int BRIMSTONE_RING = 22975;
+
 	private static final int AMULET_OF_AVARICE = ItemID.WILD_CAVE_AMULET;
 	private static final int COLOSSAL_BLADE = ItemID.GIANTS_FOUNDRY_COLOSSAL_BLADE;
 	private static final int BERSERKER_NECKLACE = ItemID.JEWL_BESERKER_NECKLACE;
@@ -211,7 +214,30 @@ public class SetEffectRegistry
 
 		int flatMaxHit = flatMaxHitBonus(ids, style, target, notes);
 
-		return new SetEffects(accuracy, damage, flatMaxHit, voidSet, notes);
+		// A tome raises a matching spell by a tenth. GearForge assumes Ice Barrage for magic, which is
+		// a water spell, so only the tome of water can apply — the others are held for when spell
+		// selection exists rather than being applied to a spell they do not match.
+		if (style.isMagic() && ids.contains(TOME_OF_WATER))
+		{
+			damage *= 1.10;
+			notes.add("Tome of water: matches the assumed Ice Barrage");
+		}
+
+		boolean brimstone = style.isMagic() && ids.contains(BRIMSTONE_RING);
+		if (brimstone)
+		{
+			notes.add("Brimstone ring: lowers magic defence a quarter of the time");
+		}
+
+		// The fang rerolls a miss. So do the confliction gauntlets, but only with a one-handed magic
+		// weapon, which the optimizer settles when it knows the weapon.
+		boolean reroll = style.isMelee() && ids.contains(ItemID.OSMUMTENS_FANG);
+		if (reroll)
+		{
+			notes.add("Osmumten's fang: a miss is rolled again");
+		}
+
+		return new SetEffects(accuracy, damage, flatMaxHit, brimstone, reroll, voidSet, notes);
 	}
 
 	/**

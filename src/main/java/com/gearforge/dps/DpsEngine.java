@@ -26,7 +26,7 @@ public class DpsEngine
 		int effectiveAttack = effectiveAttackLevel(context);
 		int attackRoll = attackRoll(effectiveAttack, style.attackBonusOf(equipment), context.getAccuracyMultiplier());
 		int defenceRoll = defenceRoll(context);
-		double hitChance = hitChance(attackRoll, defenceRoll);
+		double hitChance = accuracyWith(context, attackRoll, defenceRoll);
 
 		int effectiveStrength = effectiveStrengthLevel(context);
 		int maxHit = maxHit(context, effectiveStrength);
@@ -136,6 +136,56 @@ public class DpsEngine
 	{
 		long roll = (long) effectiveAttackLevel * (equipmentAttackBonus + 64);
 		return floor(roll * accuracyMultiplier);
+	}
+
+	/**
+	 * Hit chance, including the two items that change how the roll itself is made rather than shifting
+	 * the numbers going into it.
+	 * <p>
+	 * A brimstone ring lowers the target's magic defence a tenth of the time, and Osmumten's fang
+	 * rerolls a miss — neither is a multiplier on accuracy, so both had to be applied here.
+	 */
+	private double accuracyWith(CombatContext context, int attackRoll, int defenceRoll)
+	{
+		double hitChance = hitChance(attackRoll, defenceRoll);
+
+		if (context.isBrimstoneRing() && context.getStyle().isMagic())
+		{
+			// A quarter of attacks roll against nine tenths of the defence.
+			double reduced = hitChance(attackRoll, (int) Math.floor(defenceRoll * 9.0 / 10.0));
+			hitChance = 0.75 * hitChance + 0.25 * reduced;
+		}
+
+		if (context.isRerollsMisses())
+		{
+			hitChance = rerolledHitChance(attackRoll, defenceRoll, hitChance);
+		}
+
+		return hitChance;
+	}
+
+	/**
+	 * Osmumten's fang, and the confliction gauntlets, roll twice and take the better. The result is not
+	 * simply "one minus the chance of missing twice" because the two rolls are not independent — they
+	 * share the same defence roll.
+	 */
+	private double rerolledHitChance(int attackRoll, int defenceRoll, double singleRoll)
+	{
+		double doubleRoll = fangHitChance(attackRoll, defenceRoll);
+		return doubleRoll / (1 + doubleRoll - singleRoll);
+	}
+
+	private static double fangHitChance(int attackRoll, int defenceRoll)
+	{
+		double attack = Math.max(0, attackRoll);
+		double defence = Math.max(0, defenceRoll);
+
+		if (attack > defence)
+		{
+			return 1 - (defence + 2) * (2 * defence + 3) / (attack + 1) / (attack + 1) / 6;
+		}
+
+		return attack * (4 * attack + 5) / 6 / (attack + 1) / (defence + 1);
 	}
 
 	/**

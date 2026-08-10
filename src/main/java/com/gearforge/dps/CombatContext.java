@@ -65,6 +65,16 @@ public class CombatContext
 	/** Damage added to the maximum rather than multiplied into it — the colossal blade and ratbane. */
 	int flatMaxHit;
 
+	/** A brimstone ring lowers the target's magic defence a quarter of the time. */
+	boolean brimstoneRing;
+
+	/**
+	 * Whether a miss is rolled a second time — Osmumten's fang, and the confliction gauntlets with a
+	 * one-handed magic weapon. Not an accuracy multiplier: the two rolls share a defence roll, so the
+	 * result has to be worked out from both.
+	 */
+	boolean rerollsMisses;
+
 	/** A zaryte crossbow strengthens every bolt effect, so the engine has to know it is held. */
 	boolean zaryteCrossbow;
 

@@ -18,6 +18,10 @@ public final class SetEffects
 	 * gear when the game does not.
 	 */
 	private final int flatMaxHit;
+
+	/** Items that change how the accuracy roll is made rather than what goes into it. */
+	private final boolean brimstoneRing;
+	private final boolean rerollsMisses;
 	private final VoidSet voidSet;
 	private final List<String> notes;
 
@@ -30,9 +34,18 @@ public final class SetEffects
 		double accuracyMultiplier, double damageMultiplier, int flatMaxHit, VoidSet voidSet,
 		List<String> notes)
 	{
+		this(accuracyMultiplier, damageMultiplier, flatMaxHit, false, false, voidSet, notes);
+	}
+
+	SetEffects(
+		double accuracyMultiplier, double damageMultiplier, int flatMaxHit, boolean brimstoneRing,
+		boolean rerollsMisses, VoidSet voidSet, List<String> notes)
+	{
 		this.accuracyMultiplier = accuracyMultiplier;
 		this.damageMultiplier = damageMultiplier;
 		this.flatMaxHit = flatMaxHit;
+		this.brimstoneRing = brimstoneRing;
+		this.rerollsMisses = rerollsMisses;
 		this.voidSet = voidSet;
 		this.notes = new ArrayList<>(notes);
 	}
@@ -55,6 +68,16 @@ public final class SetEffects
 	public int getFlatMaxHit()
 	{
 		return flatMaxHit;
+	}
+
+	public boolean isBrimstoneRing()
+	{
+		return brimstoneRing;
+	}
+
+	public boolean isRerollsMisses()
+	{
+		return rerollsMisses;
 	}
 
 	public VoidSet getVoidSet()

@@ -61,6 +61,9 @@ public class DpsOptimizer
 	/** How many partial setups survive each beam step. */
 	private static final int BEAM_WIDTH = 50;
 
+	/** Rerolls a magic miss, but only alongside a one-handed weapon. */
+	private static final int CONFLICTION_GAUNTLETS = 31106;
+
 	/**
 	 * Adjustable so the breadth can be measured rather than assumed. The pre-filter keeps the best few
 	 * items per slot by raw offensive stat, which is a guess at what might win — an item that is second
@@ -273,6 +276,13 @@ public class DpsOptimizer
 			.accuracyMultiplier(effects.getAccuracyMultiplier())
 			.damageMultiplier(effects.getDamageMultiplier())
 			.flatMaxHit(effects.getFlatMaxHit())
+			.brimstoneRing(effects.isBrimstoneRing())
+			// Confliction gauntlets reroll a magic miss, but only with a one-handed weapon.
+			.rerollsMisses(effects.isRerollsMisses()
+				|| (template.getStyle().isMagic()
+					&& setup.containsKey(EquipmentSlot.GLOVES)
+					&& setup.get(EquipmentSlot.GLOVES).getItemId() == CONFLICTION_GAUNTLETS
+					&& !weapon.getStats().isTwoHanded()))
 			.build();
 
 		return engine.score(context);

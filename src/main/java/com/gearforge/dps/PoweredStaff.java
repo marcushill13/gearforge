@@ -32,7 +32,39 @@ public enum PoweredStaff
 	TUMEKENS_SHADOW(ItemID.TUMEKENS_SHADOW),
 
 	/** Scales differently from the rest, on a curve of its own. */
-	WARPED_SCEPTRE(ItemID.WARPED_SCEPTRE);
+	WARPED_SCEPTRE(ItemID.WARPED_SCEPTRE),
+
+	/** A third of the level less eight. */
+	THAMMARONS_SCEPTRE(22555, 22552),
+
+	/** A third less six, and it lowers the target's Defence on its special. */
+	ACCURSED_SCEPTRE(27665, 27662),
+
+	/** A third less six, like the accursed. */
+	EYE_OF_AYAK(31113, 31115),
+
+	/** A third less two. */
+	DAWNBRINGER(22516),
+
+	/** A third of the level less five, plus the ratbane ten it can only ever be used with. */
+	BONE_STAFF(28796),
+
+	/** A flat eight, whatever your level. */
+	STARTER_STAFF(22335),
+
+	// The crystal and corrupted staves hit for a fixed amount that ignores the Magic level entirely.
+
+	CRYSTAL_STAFF_BASIC(23898, 23852),
+	CRYSTAL_STAFF_ATTUNED(23899, 23853),
+	CRYSTAL_STAFF_PERFECTED(23900, 23854),
+
+	// The salamanders, which scale like a strength bonus rather than like a staff.
+
+	SWAMP_LIZARD(10149),
+	ORANGE_SALAMANDER(10146),
+	RED_SALAMANDER(10147),
+	BLACK_SALAMANDER(10148),
+	TECU_SALAMANDER(28834);
 
 	private final Set<Integer> itemIds;
 
@@ -66,9 +98,53 @@ public enum PoweredStaff
 				return Math.max(1, magicLevel / 3 + 1);
 			case WARPED_SCEPTRE:
 				return Math.max(1, (8 * magicLevel + 96) / 37);
+			case THAMMARONS_SCEPTRE:
+				return Math.max(1, magicLevel / 3 - 8);
+			case ACCURSED_SCEPTRE:
+			case EYE_OF_AYAK:
+				return Math.max(1, magicLevel / 3 - 6);
+			case DAWNBRINGER:
+				return Math.max(1, magicLevel / 3 - 2);
+
+			// The +10 is a ratbane bonus, but the staff cannot be used on anything else.
+			case BONE_STAFF:
+				return Math.max(1, magicLevel / 3 - 5) + 10;
+
+			case STARTER_STAFF:
+				return 8;
+
+			// Fixed damage, entirely independent of the Magic level.
+			case CRYSTAL_STAFF_BASIC:
+				return 23;
+			case CRYSTAL_STAFF_ATTUNED:
+				return 31;
+			case CRYSTAL_STAFF_PERFECTED:
+				return 39;
+
+			// The salamanders use the strength formula, with the breath's own bonus in place of gear.
+			case SWAMP_LIZARD:
+				return salamander(magicLevel, 56);
+			case ORANGE_SALAMANDER:
+				return salamander(magicLevel, 59);
+			case RED_SALAMANDER:
+				return salamander(magicLevel, 77);
+			case BLACK_SALAMANDER:
+				return salamander(magicLevel, 92);
+			case TECU_SALAMANDER:
+				return salamander(magicLevel, 104);
+
 			default:
 				return 1;
 		}
+	}
+
+	/**
+	 * A salamander's breath scales like a melee maximum, with the weapon's own bonus standing in for
+	 * strength gear.
+	 */
+	private static int salamander(int magicLevel, int bonus)
+	{
+		return (magicLevel * (bonus + 64) + 320) / 640;
 	}
 
 	/**
