@@ -73,6 +73,22 @@ public class SetEffectRegistry
 	private static final int ROD_OF_IVANDIS = ItemID.BURGH_ROD_COMMAND_FINAL_10;
 	private static final int SILVER_SICKLE = ItemID.SILVER_SICKLE;
 	private static final int GADDERHAMMER = ItemID.GADDERANKS_WARHAMMER;
+
+	/** Efaritay's aid. Resolved from the equipment dataset, which carries names the id constants do not. */
+	private static final int EFARITAYS_AID = 21140;
+
+	private static final int AMULET_OF_AVARICE = ItemID.WILD_CAVE_AMULET;
+	private static final int COLOSSAL_BLADE = ItemID.GIANTS_FOUNDRY_COLOSSAL_BLADE;
+	private static final int BERSERKER_NECKLACE = ItemID.JEWL_BESERKER_NECKLACE;
+	private static final int OBSIDIAN_HELM = ItemID.OBSIDIAN_HELMET;
+	private static final int OBSIDIAN_BODY = ItemID.OBSIDIAN_PLATEBODY;
+	private static final int OBSIDIAN_LEGS = ItemID.OBSIDIAN_PLATELEGS;
+
+	/** Toktz-xil-ak, -ek, -ul, Tzhaar-ket-em and -om. */
+	private static final int[] TZHAAR_WEAPONS = {6523, 6525, 6522, 6527, 6528};
+
+	/** Bone mace, shortbow and staff, which add a flat ten against rats. */
+	private static final int[] RATBANE_WEAPONS = {28792, 28794, 28796};
 	private static final int SCORCHING_BOW = ItemID.SCORCHING_BOW;
 
 	private static final int CRYSTAL_HELM = ItemID.CRYSTAL_HELMET;
@@ -152,8 +168,9 @@ public class SetEffectRegistry
 		// rather than multiplying — wearing both is a waste, and modelling it as a stack inflates DPS.
 		double salve = salveMultiplier(ids, style, target, notes);
 		double slayer = slayerMultiplier(ids, style, onSlayerTask, notes);
+		double avarice = avariceMultiplier(ids, target, notes);
 
-		double targetBonus = Math.max(salve, slayer);
+		double targetBonus = Math.max(avarice, Math.max(salve, slayer));
 		if (targetBonus > 1.0)
 		{
 			accuracy *= targetBonus;
@@ -179,6 +196,10 @@ public class SetEffectRegistry
 		accuracy *= crystal[0];
 		damage *= crystal[1];
 
+		double[] obsidian = obsidianSet(ids, style, notes);
+		accuracy *= obsidian[0];
+		damage *= obsidian[1];
+
 		// The twisted bow is a bow: its scaling applies to its own shots, not to spells.
 		if (style.isRanged() && ids.contains(TWISTED_BOW))
 		{
@@ -188,7 +209,9 @@ public class SetEffectRegistry
 			notes.add("Twisted bow: scaled to " + magic + " magic");
 		}
 
-		return new SetEffects(accuracy, damage, voidSet, notes);
+		int flatMaxHit = flatMaxHitBonus(ids, style, target, notes);
+
+		return new SetEffects(accuracy, damage, flatMaxHit, voidSet, notes);
 	}
 
 	/**
@@ -327,45 +350,48 @@ public class SetEffectRegistry
 			// the game does not give them, which overstated them by 60% against every demon.
 		}
 
-		// The vampyre banes, strongest first. Each supersedes the next rather than stacking.
+		// The vampyre banes, strongest first. Each supersedes the next rather than stacking, but
+		// Efaritay's aid is a tenth on top of whichever applies.
 		if (isVampyre(target))
 		{
+			double efaritay = ids.contains(EFARITAYS_AID) ? 1.10 : 1.0;
+
 			if (ids.contains(ItemID.SUNSPEAR))
 			{
 				notes.add("Sunspear: target is a vampyre");
-				return 1.50;
+				return 1.50 * efaritay;
 			}
 
 			if (ids.contains(BLISTERWOOD_FLAIL) || ids.contains(HALLOWED_FLAIL)
 				|| ids.contains(BLISTERWOOD_STAKE))
 			{
 				notes.add("Blisterwood: target is a vampyre");
-				return 1.25;
+				return 1.25 * efaritay;
 			}
 
 			if (ids.contains(BLISTERWOOD_SICKLE))
 			{
 				notes.add("Blisterwood sickle: target is a vampyre");
-				return 23.0 / 20.0;
+				return 23.0 / 20.0 * efaritay;
 			}
 
 			if (ids.contains(IVANDIS_FLAIL))
 			{
 				notes.add("Ivandis flail: target is a vampyre");
-				return 6.0 / 5.0;
+				return 6.0 / 5.0 * efaritay;
 			}
 
 			// The rod does nothing to the strongest tier.
 			if (wearingFamily(ids, ROD_OF_IVANDIS) && !target.hasAttribute(MonsterAttribute.VAMPYRE3))
 			{
 				notes.add("Rod of ivandis: target is a vampyre");
-				return 1.10;
+				return 1.10 * efaritay;
 			}
 
 			if (target.hasAttribute(MonsterAttribute.VAMPYRE1) && ids.contains(SILVER_SICKLE))
 			{
 				notes.add("Silver: target is a lesser vampyre");
-				return 1.10;
+				return 1.10 * efaritay;
 			}
 		}
 
@@ -419,6 +445,94 @@ public class SetEffectRegistry
 	 *
 	 * @return accuracy and damage multipliers, both 1.0 when the set does not apply
 	 */
+	/**
+	 * The amulet of avarice, worth a fifth more against revenants. It shares the salve and slayer slot
+	 * rather than stacking with them.
+	 */
+	private static double avariceMultiplier(Set<Integer> ids, Target target, List<String> notes)
+	{
+		if (!ids.contains(AMULET_OF_AVARICE) || !target.getName().startsWith("Revenant"))
+		{
+			return 1.0;
+		}
+
+		notes.add("Amulet of avarice: target is a revenant");
+		return 24.0 / 20.0;
+	}
+
+	/**
+	 * The obsidian armour set, which does nothing unless a TzHaar weapon is held. Worth a tenth of both
+	 * accuracy and damage.
+	 */
+	private static double[] obsidianSet(Set<Integer> ids, CombatStyle style, List<String> notes)
+	{
+		if (!style.isMelee()
+			|| !ids.contains(OBSIDIAN_HELM) || !ids.contains(OBSIDIAN_BODY) || !ids.contains(OBSIDIAN_LEGS))
+		{
+			return new double[]{1.0, 1.0};
+		}
+
+		boolean tzhaarWeapon = false;
+		for (int weapon : TZHAAR_WEAPONS)
+		{
+			if (ids.contains(weapon))
+			{
+				tzhaarWeapon = true;
+				break;
+			}
+		}
+
+		if (!tzhaarWeapon)
+		{
+			return new double[]{1.0, 1.0};
+		}
+
+		// The berserker necklace is a separate fifth on top, and only for a TzHaar weapon.
+		double damage = ids.contains(BERSERKER_NECKLACE) ? 1.10 * 1.20 : 1.10;
+		notes.add(ids.contains(BERSERKER_NECKLACE)
+			? "Obsidian set and berserker necklace: TzHaar weapon"
+			: "Obsidian set: TzHaar weapon");
+
+		return new double[]{1.10, damage};
+	}
+
+	/**
+	 * Damage added to the maximum rather than multiplied into it.
+	 * <p>
+	 * The colossal blade grows with how big the target is, and the ratbane weapons add a flat ten
+	 * against rats. Folding either into a multiplier would scale it with the rest of your gear, which
+	 * the game does not do.
+	 */
+	private static int flatMaxHitBonus(
+		Set<Integer> ids, CombatStyle style, Target target, List<String> notes)
+	{
+		if (!style.isMelee())
+		{
+			return 0;
+		}
+
+		if (ids.contains(COLOSSAL_BLADE))
+		{
+			int bonus = Math.min(target.getSize() * 2, 10);
+			notes.add("Colossal blade: +" + bonus + " against a target this size");
+			return bonus;
+		}
+
+		if (target.hasAttribute(MonsterAttribute.RAT))
+		{
+			for (int weapon : RATBANE_WEAPONS)
+			{
+				if (ids.contains(weapon))
+				{
+					notes.add("Ratbane weapon: target is a rat");
+					return 10;
+				}
+			}
+		}
+
+		return 0;
+	}
+
 	/**
 	 * Any of the three vampyre tiers. They are separate attributes because the banes treat them
 	 * differently — the rod is useless against the strongest, and silver only troubles the weakest.

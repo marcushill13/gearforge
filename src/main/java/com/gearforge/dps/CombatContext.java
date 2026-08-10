@@ -62,6 +62,9 @@ public class CombatContext
 	 */
 	PoweredStaff poweredStaffType;
 
+	/** Damage added to the maximum rather than multiplied into it — the colossal blade and ratbane. */
+	int flatMaxHit;
+
 	/** A zaryte crossbow strengthens every bolt effect, so the engine has to know it is held. */
 	boolean zaryteCrossbow;
 

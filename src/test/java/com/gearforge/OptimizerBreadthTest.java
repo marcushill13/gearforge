@@ -107,12 +107,20 @@ public class OptimizerBreadthTest
 		List<GearItem> bank = randomBank(new Random(7));
 
 		// Warm up, so the measurement is not dominated by class loading and JIT.
-		for (int i = 0; i < 3; i++)
+		for (int i = 0; i < 5; i++)
 		{
 			bestDps(bank, OptimizerBreadth.CANDIDATES_PER_SLOT);
 		}
 
-		long nanos = time(() -> bestDps(bank, OptimizerBreadth.CANDIDATES_PER_SLOT));
+		// Best of several rather than one sample. The question is whether the work can be done inside
+		// the budget, and a single cold run on a busy machine answers a different question — this test
+		// failed spuriously that way once already.
+		long nanos = Long.MAX_VALUE;
+		for (int i = 0; i < 5; i++)
+		{
+			nanos = Math.min(nanos, time(() -> bestDps(bank, OptimizerBreadth.CANDIDATES_PER_SLOT)));
+		}
+
 		double millis = nanos / 1e6;
 
 		assertTrue("One optimise took " + millis + "ms, which is too slow to run on every gear change",

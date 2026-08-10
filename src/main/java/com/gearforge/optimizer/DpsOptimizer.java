@@ -272,6 +272,7 @@ public class DpsOptimizer
 			.voidSet(effects.getVoidSet())
 			.accuracyMultiplier(effects.getAccuracyMultiplier())
 			.damageMultiplier(effects.getDamageMultiplier())
+			.flatMaxHit(effects.getFlatMaxHit())
 			.build();
 
 		return engine.score(context);

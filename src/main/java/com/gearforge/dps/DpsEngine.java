@@ -195,7 +195,8 @@ public class DpsEngine
 			base = (int) (numerator / 640);
 		}
 
-		return Math.max(0, floor(base * context.getDamageMultiplier()));
+		// Added after the multiplier, so it does not scale with the rest of the gear.
+		return Math.max(0, floor(base * context.getDamageMultiplier()) + context.getFlatMaxHit());
 	}
 
 	public int attackSpeedTicks(CombatContext context)
