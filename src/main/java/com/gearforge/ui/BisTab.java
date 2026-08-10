@@ -226,7 +226,9 @@ class BisTab extends JPanel
 	 */
 	private JPanel buildPrayerGrid()
 	{
-		JPanel grid = new JPanel(new GridLayout(0, 4, 2, 2));
+		// Five across rather than four: seventeen prayers is four rows instead of five, which is a row
+		// of the panel handed back to the results below when the section is open.
+		JPanel grid = new JPanel(new GridLayout(0, 5, 2, 2));
 		grid.setBackground(ColorScheme.DARK_GRAY_COLOR);
 		grid.setBorder(BorderFactory.createEmptyBorder(4, 0, 4, 0));
 
@@ -387,6 +389,12 @@ class BisTab extends JPanel
 			header -> spriteManager.addSpriteTo(header, SpriteID.Staticons.HERBLORE, 0)));
 		specContent.setLayout(new BoxLayout(specContent, BoxLayout.Y_AXIS));
 		specContent.setBackground(ColorScheme.DARK_GRAY_COLOR);
+		specContent.setAlignmentX(Component.LEFT_ALIGNMENT);
+		// This section sits inside the results scroll pane. Once the pane is long enough to scroll, the
+		// scrollbar takes width off the right, and anything sized to fill ran underneath it — which is
+		// what clipped the dropdown once the prayer grid was open.
+		specContent.setBorder(
+			BorderFactory.createEmptyBorder(0, 0, 0, Cards.SCROLLBAR_ALLOWANCE));
 		specSearch.addKeyListener(new java.awt.event.KeyAdapter()
 		{
 			@Override
@@ -923,8 +931,7 @@ class BisTab extends JPanel
 	{
 		JPanel row = new JPanel(new BorderLayout(6, 0));
 		row.setBackground(ColorScheme.DARKER_GRAY_COLOR);
-		// Extra padding on the right so the value is not left sitting under the scrollbar.
-		row.setBorder(BorderFactory.createEmptyBorder(5, 6, 5, 6 + Cards.SCROLLBAR_ALLOWANCE));
+		row.setBorder(BorderFactory.createEmptyBorder(5, 6, 5, 6));
 		row.setAlignmentX(Component.LEFT_ALIGNMENT);
 
 		JLabel icon = new JLabel();
