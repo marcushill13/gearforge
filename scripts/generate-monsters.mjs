@@ -106,6 +106,10 @@ async function main() {
         ranged: defensive.standard ?? 0,
       },
       attributes: monster.attributes ?? [],
+      // Elemental weakness. A matching spell gains this percentage of both accuracy and max hit,
+      // which is far too large to leave out — over a thousand monsters carry one.
+      weaknessElement: monster.weakness?.element ?? null,
+      weaknessSeverity: monster.weakness?.severity ?? 0,
       slayerMonster: Boolean(monster.is_slayer_monster),
       boss: isBoss,
     });

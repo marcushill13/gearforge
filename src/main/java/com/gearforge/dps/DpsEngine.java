@@ -147,6 +147,14 @@ public class DpsEngine
 	 */
 	private double accuracyWith(CombatContext context, int attackRoll, int defenceRoll)
 	{
+		// A spell of the target's weak element rolls with that much more accuracy as well as damage.
+		Spell spell = context.getSpell();
+		if (spell != null && spell.getElement() != null
+			&& spell.getElement() == context.getTarget().getWeaknessElement())
+		{
+			attackRoll += attackRoll * context.getTarget().getWeaknessSeverity() / 100;
+		}
+
 		double hitChance = hitChance(attackRoll, defenceRoll);
 
 		if (context.isBrimstoneRing() && context.getStyle().isMagic())
@@ -225,9 +233,21 @@ public class DpsEngine
 
 			// A powered staff has its own attack and casts nothing, so a spell's damage is not its
 			// starting point. Assuming Ice Barrage for these scored a trident on a spell it cannot cast.
-			int spellDamage = staff == null
-				? context.getBaseSpellDamage()
-				: staff.maxHit(context.getMagicLevel() + context.getMagicBoost());
+			// A spell's own maximum already includes the target's elemental weakness, which is worth as
+			// much as half again and is why the strongest spell is not always the right one.
+			int spellDamage;
+			if (staff != null)
+			{
+				spellDamage = staff.maxHit(context.getMagicLevel() + context.getMagicBoost());
+			}
+			else if (context.getSpell() != null)
+			{
+				spellDamage = context.getSpell().maxHitAgainst(context.getTarget());
+			}
+			else
+			{
+				spellDamage = context.getBaseSpellDamage();
+			}
 
 			double magicBonus = equipment.getMagicDamage() / 100.0
 				* (staff == null ? 1.0 : staff.magicDamageMultiplier());

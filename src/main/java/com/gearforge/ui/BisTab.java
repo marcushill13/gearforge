@@ -19,6 +19,7 @@ import com.gearforge.dps.CombatContext;
 import com.gearforge.dps.CombatPrayer;
 import com.gearforge.dps.CombatStyle;
 import com.gearforge.dps.Potion;
+import com.gearforge.dps.Spell;
 import com.gearforge.dps.SpecialAttack;
 import com.gearforge.dps.PrayerIcon;
 import com.gearforge.dps.Target;
@@ -652,6 +653,15 @@ class BisTab extends JPanel
 			.target(target == null ? Target.dummy() : target.toTarget())
 			.targetHitpoints(target == null ? 0 : target.getHitpoints())
 			.poweredStaff(false)
+			// The best spell for this target rather than a fixed assumption. Over a thousand monsters
+			// have an elemental weakness worth half again in accuracy and damage, and against those the
+			// strongest spell is not the right one.
+			.spell(style.isMagic()
+				? Spell.bestFor(
+					target == null ? Target.dummy() : target.toTarget(),
+					levels.getMagic(),
+					true)
+				: null)
 			.baseSpellDamage(style.isMagic() ? ASSUMED_SPELL_DAMAGE : 0)
 			.weaponSpeedTicks(SPELL_SPEED_TICKS)
 			.build();

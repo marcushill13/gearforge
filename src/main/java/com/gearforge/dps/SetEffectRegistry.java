@@ -88,7 +88,9 @@ public class SetEffectRegistry
 	/** The dyed silverlight behaves exactly as the plain one does. */
 	private static final int SILVERLIGHT_DYED = 6745;
 
+	private static final int TOME_OF_FIRE = 20714;
 	private static final int TOME_OF_WATER = 25574;
+	private static final int TOME_OF_EARTH = 30064;
 	private static final int BRIMSTONE_RING = 22975;
 
 	private static final int AMULET_OF_AVARICE = ItemID.WILD_CAVE_AMULET;
@@ -176,6 +178,16 @@ public class SetEffectRegistry
 
 	public SetEffects evaluate(Collection<GearItem> equipped, CombatStyle style, Target target, boolean onSlayerTask)
 	{
+		return evaluate(equipped, style, target, onSlayerTask, null);
+	}
+
+	/**
+	 * @param spell the spell being cast, which decides whether an elemental tome applies
+	 */
+	public SetEffects evaluate(
+		Collection<GearItem> equipped, CombatStyle style, Target target, boolean onSlayerTask,
+		Spell spell)
+	{
 		Set<Integer> ids = new HashSet<>();
 		for (GearItem item : equipped)
 		{
@@ -235,13 +247,20 @@ public class SetEffectRegistry
 
 		int flatMaxHit = flatMaxHitBonus(ids, style, target, notes);
 
-		// A tome raises a matching spell by a tenth. GearForge assumes Ice Barrage for magic, which is
-		// a water spell, so only the tome of water can apply — the others are held for when spell
-		// selection exists rather than being applied to a spell they do not match.
-		if (style.isMagic() && ids.contains(TOME_OF_WATER))
+		// A tome raises a spell of its own element by a tenth, and nothing else. Now that the spell is
+		// chosen rather than assumed, all three are meaningful.
+		if (style.isMagic() && spell != null && spell.getElement() != null)
 		{
-			damage *= 1.10;
-			notes.add("Tome of water: matches the assumed Ice Barrage");
+			boolean matched =
+				(spell.getElement() == Spell.Element.FIRE && ids.contains(TOME_OF_FIRE))
+					|| (spell.getElement() == Spell.Element.WATER && ids.contains(TOME_OF_WATER))
+					|| (spell.getElement() == Spell.Element.EARTH && ids.contains(TOME_OF_EARTH));
+
+			if (matched)
+			{
+				damage *= 1.10;
+				notes.add("Tome: matches " + spell.getDisplayName());
+			}
 		}
 
 		boolean brimstone = style.isMagic() && ids.contains(BRIMSTONE_RING);

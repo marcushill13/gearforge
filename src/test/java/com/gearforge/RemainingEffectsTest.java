@@ -11,6 +11,7 @@ import com.gearforge.dps.MonsterAttribute;
 import com.gearforge.dps.PoweredStaff;
 import com.gearforge.dps.SetEffectRegistry;
 import com.gearforge.dps.SetEffects;
+import com.gearforge.dps.Spell;
 import com.gearforge.dps.Target;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -106,12 +107,49 @@ public class RemainingEffectsTest
 			rerolled < 1 - (1 - single) * (1 - single) + TOLERANCE);
 	}
 
+	/**
+	 * A tome raises a spell of its own element and nothing else. It used to be applied to whatever
+	 * magic setup came past, because the spell was assumed rather than chosen.
+	 */
 	@Test
-	public void theTomeOfWaterRaisesTheAssumedBarrage()
+	public void aTomeOnlyHelpsItsOwnElement()
 	{
-		SetEffects effects = evaluate(CombatStyle.MAGIC, 25574);
+		List<GearItem> tomeOfWater = worn(25574);
+		Target target = plainTarget();
 
-		assertEquals(1.10, effects.getDamageMultiplier(), TOLERANCE);
+		SetEffects matched = registry.evaluate(
+			tomeOfWater, CombatStyle.MAGIC, target, false, Spell.WATER_SURGE);
+		SetEffects mismatched = registry.evaluate(
+			tomeOfWater, CombatStyle.MAGIC, target, false, Spell.FIRE_SURGE);
+		SetEffects noSpell = registry.evaluate(
+			tomeOfWater, CombatStyle.MAGIC, target, false, Spell.ICE_BARRAGE);
+
+		assertEquals(1.10, matched.getDamageMultiplier(), TOLERANCE);
+		assertEquals(1.0, mismatched.getDamageMultiplier(), TOLERANCE);
+		assertEquals("Ice Barrage carries no element for a tome to match",
+			1.0, noSpell.getDamageMultiplier(), TOLERANCE);
+	}
+
+	private List<GearItem> worn(int... itemIds)
+	{
+		List<GearItem> worn = new ArrayList<>();
+		for (int id : itemIds)
+		{
+			worn.add(new GearItem(id, "Item " + id, 1,
+				EquipmentStats.builder().build(), EnumSet.of(Storage.BANK)));
+		}
+
+		return worn;
+	}
+
+	private static Target plainTarget()
+	{
+		return Target.builder()
+			.name("Target")
+			.defenceLevel(100)
+			.magicLevel(100)
+			.defensiveBonuses(EquipmentStats.builder().build())
+			.build();
 	}
 
 	@Test

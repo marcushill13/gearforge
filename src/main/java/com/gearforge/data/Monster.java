@@ -1,6 +1,7 @@
 package com.gearforge.data;
 
 import com.gearforge.dps.MonsterAttribute;
+import com.gearforge.dps.Spell;
 import com.gearforge.dps.Target;
 import java.util.ArrayList;
 import java.util.EnumSet;
@@ -36,6 +37,10 @@ public class Monster
 	private Defensive defensive = new Defensive();
 	private List<String> attributes = new ArrayList<>();
 	private boolean slayerMonster;
+
+	/** Elemental weakness, if any. A matching spell gains the severity in accuracy and damage. */
+	private String weaknessElement;
+	private int weaknessSeverity;
 
 	/** Whether this is one of the curated bosses the Bosses tab lists. */
 	private boolean boss;
@@ -78,6 +83,8 @@ public class Monster
 			.defensiveBonuses(bonuses)
 			.size(size)
 			.attributes(parseAttributes())
+			.weaknessElement(Spell.Element.parse(weaknessElement))
+			.weaknessSeverity(weaknessSeverity)
 			.build();
 	}
 

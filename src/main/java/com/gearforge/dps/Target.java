@@ -39,6 +39,15 @@ public class Target
 	Set<MonsterAttribute> attributes = EnumSet.noneOf(MonsterAttribute.class);
 
 	/**
+	 * The element this target is weak to, or null. A spell of that element gains the severity below as
+	 * a percentage of both its accuracy and its maximum, which is large enough to change which spell
+	 * is worth casting.
+	 */
+	Spell.Element weaknessElement;
+
+	int weaknessSeverity;
+
+	/**
 	 * A target that rolls zero defence — the neutral baseline the BiS tab uses when no boss is
 	 * selected, matching a combat dummy.
 	 */

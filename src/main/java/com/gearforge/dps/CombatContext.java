@@ -88,6 +88,12 @@ public class CombatContext
 	int baseSpellDamage;
 
 	/**
+	 * The spell being cast, when one is. Carries the element, which decides whether the target's
+	 * elemental weakness and any matching tome apply.
+	 */
+	Spell spell;
+
+	/**
 	 * Target-specific accuracy multiplier — slayer helm on task, salve, twisted bow. Set effects
 	 * populate this; 1.0 means none.
 	 */
