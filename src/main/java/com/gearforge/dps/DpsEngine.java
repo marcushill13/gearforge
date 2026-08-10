@@ -119,6 +119,15 @@ public class DpsEngine
 		{
 			case RANGED:
 			{
+				// The atlatl is thrown, so it takes the Strength level and its prayers rather than
+				// Ranged. Everything else about it is still a ranged attack.
+				if (context.isRangedScalesWithStrength())
+				{
+					int melee = floor((context.getStrengthLevel() + context.getStrengthBoost())
+						* prayer.getStrength());
+					return floor((melee + attackStyle.getMeleeStrengthAdd() + 8) * voidMultiplier);
+				}
+
 				int boosted = floor((context.getRangedLevel() + context.getRangedBoost()) * prayer.getRangedStrength());
 				return floor((boosted + attackStyle.getRangedAdd() + 8) * voidMultiplier);
 			}
@@ -256,9 +265,10 @@ public class DpsEngine
 		}
 		else
 		{
-			int strengthBonus = context.getStyle().isRanged()
-				? equipment.getRangedStrength()
-				: equipment.getStrength();
+			// The eclipse atlatl is thrown with your arm rather than drawn, so it reads the melee
+			// strength level and bonus despite being a ranged weapon.
+			boolean melee = !context.getStyle().isRanged() || context.isRangedScalesWithStrength();
+			int strengthBonus = melee ? equipment.getStrength() : equipment.getRangedStrength();
 
 			// Integer arithmetic throughout; the +320/640 form is exactly floor(0.5 + x/640).
 			long numerator = (long) effectiveStrengthLevel * (strengthBonus + 64) + 320;

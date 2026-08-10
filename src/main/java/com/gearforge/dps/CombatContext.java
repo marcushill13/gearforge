@@ -94,6 +94,12 @@ public class CombatContext
 	Spell spell;
 
 	/**
+	 * Whether the ranged weapon draws on Strength rather than Ranged. The eclipse atlatl throws with
+	 * your melee strength, and scoring it off the Ranged level makes it look far worse than it is.
+	 */
+	boolean rangedScalesWithStrength;
+
+	/**
 	 * Target-specific accuracy multiplier — slayer helm on task, salve, twisted bow. Set effects
 	 * populate this; 1.0 means none.
 	 */

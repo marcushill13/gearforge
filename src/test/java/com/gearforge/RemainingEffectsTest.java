@@ -206,4 +206,60 @@ public class RemainingEffectsTest
 			.rerollsMisses(reroll)
 			.build();
 	}
+
+	/**
+	 * Crystal blessing raises a melee maximum by a fortieth per crystal piece — a different effect from
+	 * the crystal armour's own bonus, which only helps a crystal bow.
+	 */
+	@Test
+	public void crystalBlessingScalesWithThePiecesWorn()
+	{
+		SetEffects full = registry.evaluate(
+			worn(30384, ItemID.CRYSTAL_HELMET, ItemID.CRYSTAL_CHESTPLATE, ItemID.CRYSTAL_PLATELEGS),
+			CombatStyle.SLASH, plainTarget(), false);
+
+		// One for the helm, two for the legs, three for the body.
+		assertEquals(46.0 / 40.0, full.getDamageMultiplier(), TOLERANCE);
+	}
+
+	@Test
+	public void crystalBlessingDoesNothingWithoutTheArmour()
+	{
+		SetEffects alone = registry.evaluate(
+			worn(30384), CombatStyle.SLASH, plainTarget(), false);
+
+		assertEquals(1.0, alone.getDamageMultiplier(), TOLERANCE);
+	}
+
+	/**
+	 * Chaos gauntlets add three to a bolt spell. This was unmodellable until the spell stopped being
+	 * assumed, because Ice Barrage is not a bolt.
+	 */
+	@Test
+	public void chaosGauntletsOnlyHelpABoltSpell()
+	{
+		SetEffects bolt = registry.evaluate(
+			worn(777), CombatStyle.MAGIC, plainTarget(), false, Spell.FIRE_BOLT);
+		SetEffects surge = registry.evaluate(
+			worn(777), CombatStyle.MAGIC, plainTarget(), false, Spell.FIRE_SURGE);
+
+		assertEquals(3, bolt.getFlatMaxHit());
+		assertEquals(0, surge.getFlatMaxHit());
+	}
+
+	/**
+	 * The twinflame staff fires a second hit for two fifths of the first, but only on the standard
+	 * spellbook's bolt, blast and wave spells.
+	 */
+	@Test
+	public void theTwinflameStaffOnlyDoublesItsOwnSpells()
+	{
+		SetEffects wave = registry.evaluate(
+			worn(30634), CombatStyle.MAGIC, plainTarget(), false, Spell.FIRE_WAVE);
+		SetEffects barrage = registry.evaluate(
+			worn(30634), CombatStyle.MAGIC, plainTarget(), false, Spell.ICE_BARRAGE);
+
+		assertEquals(1.40, wave.getDamageMultiplier(), TOLERANCE);
+		assertEquals(1.0, barrage.getDamageMultiplier(), TOLERANCE);
+	}
 }

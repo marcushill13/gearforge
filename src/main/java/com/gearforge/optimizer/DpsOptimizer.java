@@ -64,6 +64,9 @@ public class DpsOptimizer
 	/** Rerolls a magic miss, but only alongside a one-handed weapon. */
 	private static final int CONFLICTION_GAUNTLETS = 31106;
 
+	/** Thrown with the arm rather than drawn, so it reads Strength instead of Ranged. */
+	private static final int ECLIPSE_ATLATL = 29000;
+
 	/**
 	 * Adjustable so the breadth can be measured rather than assumed. The pre-filter keeps the best few
 	 * items per slot by raw offensive stat, which is a guess at what might win — an item that is second

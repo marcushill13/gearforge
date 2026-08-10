@@ -31,6 +31,22 @@ import net.runelite.client.game.ItemVariationMapping;
  * Dharok's is deliberately absent: its bonus scales with missing hitpoints, so at full health it is
  * just a slow greataxe and recommending it as best-in-slot would mislead.
  */
+/*
+ * Deliberately absent, with the reason for each, so the gaps read as decisions rather than oversights:
+ *
+ * - Soulreaper axe: its accuracy and damage climb with soul stacks, which are built during a fight.
+ *   A tool that recommends gear before the fight has no stack count to read.
+ * - Lightbearer: restores special attack energy. Real, and not damage — it changes how often you can
+ *   spec, not how hard anything hits.
+ * - Keris partisan of the sun: a quarter more accuracy against Tombs of Amascut monsters below a
+ *   quarter health. Both halves are fight state.
+ * - Holy water: only usable against demons, and scores off the thrown weapon's own bonus rather than
+ *   the setup's. It needs its own ranged path, which no other item shares.
+ * - Dragon arrows: set a minimum hit on the dark bow's special only, so they belong with the spec
+ *   model rather than here.
+ *
+ * Everything else the reference calculator models is modelled here.
+ */
 @Singleton
 public class SetEffectRegistry
 {
@@ -87,6 +103,10 @@ public class SetEffectRegistry
 
 	/** The dyed silverlight behaves exactly as the plain one does. */
 	private static final int SILVERLIGHT_DYED = 6745;
+
+	private static final int CRYSTAL_BLESSING = 30384;
+	private static final int CHAOS_GAUNTLETS = 777;
+	private static final int TWINFLAME_STAFF = 30634;
 
 	private static final int TOME_OF_FIRE = 20714;
 	private static final int TOME_OF_WATER = 25574;
@@ -245,7 +265,39 @@ public class SetEffectRegistry
 			notes.add("Twisted bow: scaled to " + magic + " magic");
 		}
 
+		// Crystal blessing raises a melee maximum by a fortieth per crystal piece worn, which is a
+		// different effect from the crystal armour's own bonus and stacks with nothing else.
+		if (style.isMelee() && ids.contains(CRYSTAL_BLESSING))
+		{
+			int pieces = (wearingFamily(ids, CRYSTAL_HELM) ? 1 : 0)
+				+ (wearingFamily(ids, CRYSTAL_LEGS) ? 2 : 0)
+				+ (wearingFamily(ids, CRYSTAL_BODY) ? 3 : 0);
+
+			if (pieces > 0)
+			{
+				damage *= (40.0 + pieces) / 40.0;
+				notes.add("Crystal blessing: " + pieces + " of 6 with crystal armour");
+			}
+		}
+
 		int flatMaxHit = flatMaxHitBonus(ids, style, target, notes);
+
+		// Chaos gauntlets add three to a bolt spell. This could not be modelled while every magic setup
+		// was assumed to cast Ice Barrage, which is not a bolt.
+		if (style.isMagic() && spell != null && ids.contains(CHAOS_GAUNTLETS)
+			&& spell.getDisplayName().toLowerCase().contains("bolt"))
+		{
+			flatMaxHit += 3;
+			notes.add("Chaos gauntlets: " + spell.getDisplayName() + " is a bolt spell");
+		}
+
+		// The twinflame staff fires a second hit for two fifths of the first, on the standard
+		// spellbook's bolt, blast and wave spells.
+		if (style.isMagic() && spell != null && ids.contains(TWINFLAME_STAFF) && isTwinflameSpell(spell))
+		{
+			damage *= 1.40;
+			notes.add("Twinflame staff: " + spell.getDisplayName() + " fires twice");
+		}
 
 		// A tome raises a spell of its own element by a tenth, and nothing else. Now that the spell is
 		// chosen rather than assumed, all three are meaningful.
@@ -715,6 +767,21 @@ public class SetEffectRegistry
 	{
 		int cap = target.hasAttribute(MonsterAttribute.XERICIAN) ? TBOW_XERICIAN_CAP : TBOW_CAP;
 		return Math.min(cap, Math.max(target.getMagicLevel(), target.getMagicAttack()));
+	}
+
+	/**
+	 * The twinflame staff doubles up on the standard spellbook's bolt, blast and wave spells only —
+	 * not on a strike, a surge, or anything ancient.
+	 */
+	private static boolean isTwinflameSpell(Spell spell)
+	{
+		if (spell.getElement() == null)
+		{
+			return false;
+		}
+
+		String name = spell.getDisplayName().toLowerCase();
+		return name.contains("bolt") || name.contains("blast") || name.contains("wave");
 	}
 
 	private static boolean containsAny(Set<Integer> ids, int[] candidates)
