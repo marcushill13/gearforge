@@ -50,6 +50,10 @@ function classifyWeapon(item) {
     case 'Bladed Staff':
     case 'Polestaff':
       return 'STAFF';
+    // Polearms reach two tiles. That is the difference between being able to melee Zulrah with a
+    // halberd and not being able to melee it at all, so it has to be carried through.
+    case 'Polearm':
+      return 'POLEARM';
     default:
       // Melee weapons need no ammo and are left unclassified.
       return null;

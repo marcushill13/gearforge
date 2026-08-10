@@ -1,47 +1,50 @@
 package com.gearforge.data;
 
-import com.gearforge.dps.CombatStyle;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Locale;
 import java.util.Set;
 
 /**
- * Which monsters cannot be hit with a melee weapon at all.
+ * Monsters that melee can only reach with a long weapon.
  * <p>
- * Recommending a melee setup for Zulrah is not a small inaccuracy — it is an answer the player cannot
- * act on, and it displaces the answer they wanted.
+ * Zulrah is the example: it sits a tile beyond an ordinary weapon's reach, so a whip cannot touch it
+ * — but a halberd can, and people do melee it that way. Banning melee outright is as wrong as
+ * allowing it, because it deletes a correct answer instead of a wrong one.
  * <p>
- * This is a hand-kept list because the data does not exist anywhere to read. The wiki's monster
- * export records what a monster attacks <em>with</em>, not what can reach it, and the wiki's own DPS
- * calculator does not model reachability either — it simply lets you pick a style and trusts you.
- * GearForge picks the style itself, so it has to know.
+ * So this is a reach question, not a style question. Polearms reach two tiles; everything else reaches
+ * one. The category comes from the equipment data at build time rather than being guessed at here.
  * <p>
- * Deliberately short and confined to monsters where melee is impossible rather than merely unwise.
- * A wrong entry here silently removes a correct recommendation, so the bar for adding one is that
- * melee genuinely cannot land.
+ * The list is hand-kept because no dataset carries it. The wiki's monster export records what a
+ * monster attacks <em>with</em>, not what reaches it, and the wiki's own calculator does not model
+ * this at all — there the player picks a style and takes responsibility for it. GearForge picks the
+ * style itself, so it has to be right.
  */
 public final class Reachability
 {
 	/**
-	 * Matched on the base name, so every form and level of these is covered.
+	 * Monsters an ordinary melee weapon cannot reach, matched on the base name so every form counts.
+	 */
+	private static final Set<String> NEEDS_REACH = new HashSet<>(Arrays.asList(
+		"zulrah"
+	));
+
+	/**
+	 * Monsters melee cannot touch at any reach, because there is nothing standing on the ground to hit.
 	 */
 	private static final Set<String> NO_MELEE = new HashSet<>(Arrays.asList(
-		// Coiled out of reach for the whole fight.
-		"zulrah",
-
-		// In the water; only ranged and magic reach it.
+		// In the water, and out of reach of anything.
 		"kraken",
 		"cave kraken",
 
-		// Airborne. Kree'arra's bodyguards are aviansies too and are equally unreachable.
+		// Airborne for the whole fight. Kree'arra's bodyguards are aviansies and are equally unreachable.
 		"kree'arra",
 		"aviansie",
 		"wingman skree",
 		"flockleader geerin",
 		"flight kilisa",
 
-		// Suspended above the arena.
+		// Suspended above the arena and only damaged indirectly.
 		"zalcano"
 	));
 
@@ -50,23 +53,53 @@ public final class Reachability
 	}
 
 	/**
-	 * @return true if this style can actually attack this monster
+	 * @param polearm whether the melee weapon in question reaches two tiles
+	 * @return whether a melee weapon of this reach can attack this monster
 	 */
-	public static boolean canAttack(Monster monster, CombatStyle style)
+	public static boolean meleeCanReach(Monster monster, boolean polearm)
 	{
-		if (monster == null || !style.isMelee())
+		if (monster == null)
 		{
 			return true;
 		}
 
-		return !NO_MELEE.contains(monster.getName().toLowerCase(Locale.ROOT));
+		String name = monster.getName().toLowerCase(Locale.ROOT);
+
+		if (NO_MELEE.contains(name))
+		{
+			return false;
+		}
+
+		return polearm || !NEEDS_REACH.contains(name);
 	}
 
 	/**
-	 * Why a style was excluded, for the panel to show rather than silently dropping it.
+	 * Whether melee is possible at all here, with the right weapon.
+	 */
+	public static boolean meleeIsPossible(Monster monster)
+	{
+		return monster == null || !NO_MELEE.contains(monster.getName().toLowerCase(Locale.ROOT));
+	}
+
+	/**
+	 * Whether reaching this monster in melee requires a long weapon.
+	 */
+	public static boolean requiresReach(Monster monster)
+	{
+		return monster != null && NEEDS_REACH.contains(monster.getName().toLowerCase(Locale.ROOT));
+	}
+
+	/**
+	 * Said plainly in the panel rather than a style silently disappearing.
 	 */
 	public static String reason(Monster monster)
 	{
+		if (requiresReach(monster))
+		{
+			return monster.getName() + " can only be meleed with a halberd or another weapon that "
+				+ "reaches two tiles.";
+		}
+
 		return monster.getName() + " cannot be attacked with melee.";
 	}
 }

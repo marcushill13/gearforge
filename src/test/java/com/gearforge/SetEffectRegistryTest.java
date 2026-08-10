@@ -215,8 +215,12 @@ public class SetEffectRegistryTest
 		assertEquals(7.0 / 5.0, wand.getDamageMultiplier(), TOLERANCE);
 	}
 
+	/**
+	 * Darklight and silverlight raise the attack roll by 60% and leave damage alone. They were given a
+	 * damage bonus here as well, which overstated them against every demon in the game.
+	 */
 	@Test
-	public void theWeakerDemonbaneWeaponsGiveSixtyPercent()
+	public void theWeakerDemonbaneWeaponsRaiseAccuracyOnly()
 	{
 		for (int id : new int[]{ItemID.DARKLIGHT, ItemID.SILVERLIGHT})
 		{
@@ -224,7 +228,8 @@ public class SetEffectRegistryTest
 				Collections.singletonList(piece(id, EquipmentSlot.WEAPON)),
 				CombatStyle.SLASH, DEMONIC, false);
 
-			assertEquals(1.60, effects.getDamageMultiplier(), TOLERANCE);
+			assertEquals(1.60, effects.getAccuracyMultiplier(), TOLERANCE);
+			assertEquals(1.0, effects.getDamageMultiplier(), TOLERANCE);
 		}
 
 		// Emberlight matches Arclight rather than the older pair.

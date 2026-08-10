@@ -35,6 +35,9 @@ public class ItemCategories
 	public static final String POWERED_STAFF = "POWERED_STAFF";
 	public static final String STAFF = "STAFF";
 
+	/** Reaches two tiles, unlike every other melee weapon. */
+	public static final String POLEARM = "POLEARM";
+
 	public static final String ARROW = "ARROW";
 	public static final String BRUTAL = "BRUTAL";
 	public static final String BOLT = "BOLT";
@@ -109,6 +112,15 @@ public class ItemCategories
 	 *
 	 * @param style the combat style being optimised, as {@code CombatStyle#name()}
 	 */
+	/**
+	 * Whether this weapon reaches two tiles. Polearms do; everything else stops at one, which is the
+	 * difference between being able to melee Zulrah and not.
+	 */
+	public boolean hasReach(int weaponId)
+	{
+		return POLEARM.equals(categoryOf(weaponId));
+	}
+
 	public boolean suitsStyle(int weaponId, String style)
 	{
 		String category = categoryOf(weaponId);

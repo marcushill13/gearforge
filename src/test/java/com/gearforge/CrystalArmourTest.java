@@ -1,6 +1,7 @@
 package com.gearforge;
 
 import com.gearforge.data.EquipmentStats;
+import com.gearforge.data.ItemCategories;
 import com.gearforge.data.Monster;
 import com.gearforge.data.MonsterRepository;
 import com.gearforge.data.Reachability;
@@ -75,33 +76,66 @@ public class CrystalArmourTest
 		assertEquals(1.30, effects.getAccuracyMultiplier(), EXACT);
 	}
 
+	/**
+	 * Zulrah is a reach problem, not a style problem. An ordinary weapon cannot get there; a halberd
+	 * can, and people melee it that way. Banning melee outright deleted a correct answer.
+	 */
 	@Test
-	public void zulrahCannotBeMeleed()
+	public void zulrahNeedsAHalberdRatherThanNoMeleeAtAll()
 	{
-		Monster zulrah = new MonsterRepository(new Gson()).all().stream()
-			.filter(monster -> monster.getName().equalsIgnoreCase("Zulrah"))
-			.findFirst()
-			.orElseThrow(() -> new AssertionError("Zulrah missing from the monster data"));
+		Monster zulrah = named("Zulrah");
 
-		assertFalse(Reachability.canAttack(zulrah, CombatStyle.SLASH));
-		assertFalse(Reachability.canAttack(zulrah, CombatStyle.STAB));
-		assertFalse(Reachability.canAttack(zulrah, CombatStyle.CRUSH));
+		assertTrue("Melee is possible at Zulrah with the right weapon",
+			Reachability.meleeIsPossible(zulrah));
+		assertTrue(Reachability.requiresReach(zulrah));
 
-		// The styles that can reach it must be left alone.
-		assertTrue(Reachability.canAttack(zulrah, CombatStyle.RANGED));
-		assertTrue(Reachability.canAttack(zulrah, CombatStyle.MAGIC));
+		assertFalse("A whip cannot reach Zulrah", Reachability.meleeCanReach(zulrah, false));
+		assertTrue("A halberd can", Reachability.meleeCanReach(zulrah, true));
+	}
+
+	/**
+	 * A kraken is in the water — no reach helps.
+	 */
+	@Test
+	public void somethingUnreachableStaysUnreachableWhateverTheWeapon()
+	{
+		Monster kraken = new Monster();
+		kraken.setName("Kraken");
+
+		assertFalse(Reachability.meleeIsPossible(kraken));
+		assertFalse(Reachability.meleeCanReach(kraken, true));
 	}
 
 	@Test
-	public void anOrdinaryMonsterIsReachableByEverything()
+	public void anOrdinaryMonsterIsReachableByAnything()
 	{
 		Monster crab = new Monster();
 		crab.setName("Ammonite Crab");
 
-		for (CombatStyle style : CombatStyle.values())
-		{
-			assertTrue(style + " should reach a crab", Reachability.canAttack(crab, style));
-		}
+		assertTrue(Reachability.meleeIsPossible(crab));
+		assertFalse(Reachability.requiresReach(crab));
+		assertTrue(Reachability.meleeCanReach(crab, false));
+	}
+
+	/**
+	 * The polearms are what makes the reach rule work, so the classification has to actually find them.
+	 */
+	@Test
+	public void halberdsAreClassifiedAsHavingReach()
+	{
+		ItemCategories categories = new ItemCategories(new Gson());
+
+		assertTrue(categories.hasReach(ItemID.DRAGON_HALBERD));
+		assertTrue(categories.hasReach(ItemID.CRYSTAL_HALBERD));
+		assertFalse(categories.hasReach(ItemID.ABYSSAL_WHIP));
+	}
+
+	private static Monster named(String name)
+	{
+		return new MonsterRepository(new Gson()).all().stream()
+			.filter(monster -> monster.getName().equalsIgnoreCase(name))
+			.findFirst()
+			.orElseThrow(() -> new AssertionError(name + " missing from the monster data"));
 	}
 
 	private SetEffects apply(int... itemIds)

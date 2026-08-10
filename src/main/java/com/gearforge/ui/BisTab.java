@@ -6,6 +6,7 @@ import com.gearforge.data.EquipmentSlot;
 import com.gearforge.data.EquipmentStats;
 import com.gearforge.data.GearItem;
 import com.gearforge.data.GearStat;
+import com.gearforge.data.ItemCategories;
 import com.gearforge.data.ItemRequirements;
 import com.gearforge.data.ItemStatEngine;
 import com.gearforge.data.Monster;
@@ -94,6 +95,7 @@ class BisTab extends JPanel
 	private final ItemManager itemManager;
 	private final SpriteManager spriteManager;
 	private final SpecFinder specFinder;
+	private final ItemCategories itemCategories;
 
 	/** Matches the wiki calculator's habit of scoring against a low-defence crab by default. */
 	private static final String DEFAULT_TARGET = "Ammonite Crab";
@@ -180,7 +182,8 @@ class BisTab extends JPanel
 		MonsterRepository monsters,
 		ItemManager itemManager,
 		SpriteManager spriteManager,
-		SpecFinder specFinder)
+		SpecFinder specFinder,
+		ItemCategories itemCategories)
 	{
 		this.clientThread = clientThread;
 		this.executor = executor;
@@ -196,6 +199,7 @@ class BisTab extends JPanel
 		this.itemManager = itemManager;
 		this.spriteManager = spriteManager;
 		this.specFinder = specFinder;
+		this.itemCategories = itemCategories;
 
 		setLayout(new BorderLayout());
 		setBackground(ColorScheme.DARK_GRAY_COLOR);
@@ -566,14 +570,15 @@ class BisTab extends JPanel
 			Map<CombatStyle, ScoredSetup> byStyle = new LinkedHashMap<>();
 			for (CombatStyle style : OFFENSIVE_STYLES)
 			{
-				// A style that cannot reach the target is not a worse answer, it is not an answer.
-				if (target != null && !Reachability.canAttack(target, style))
+				// Melee against something nothing can reach is not a worse answer, it is not an answer.
+				if (style.isMelee() && !Reachability.meleeIsPossible(target))
 				{
 					continue;
 				}
 
 				List<ScoredSetup> best = dpsOptimizer.best(
-					pooled, contextFor(Profile.forStyle(style), levels, target, prayer, potion), slayerTask, 1);
+					reaching(pooled, style, target),
+					contextFor(Profile.forStyle(style), levels, target, prayer, potion), slayerTask, 1);
 
 				if (!best.isEmpty())
 				{
@@ -585,14 +590,15 @@ class BisTab extends JPanel
 		}
 		else if (profile.isOffensive())
 		{
-			if (target != null && !Reachability.canAttack(target, profile.getStyle()))
+			if (profile.getStyle().isMelee() && !Reachability.meleeIsPossible(target))
 			{
 				SwingUtilities.invokeLater(() -> showMessage(Reachability.reason(target)));
 				return;
 			}
 
 			CombatContext context = contextFor(profile, levels, target, prayer, potion);
-			List<ScoredSetup> best = dpsOptimizer.best(pooled, context, slayerTask, 3);
+			List<ScoredSetup> best =
+				dpsOptimizer.best(reaching(pooled, profile.getStyle(), target), context, slayerTask, 3);
 			List<SpecSuggestion> specs = specsFor(best, everySpecWeapon, context);
 			SwingUtilities.invokeLater(() -> renderOffensive(best, specs, profile, pool, target));
 		}
@@ -729,6 +735,34 @@ class BisTab extends JPanel
 		row.add(open, BorderLayout.EAST);
 
 		return row;
+	}
+
+	/**
+	 * Drops melee weapons that cannot physically reach the target.
+	 * <p>
+	 * Zulrah sits a tile beyond an ordinary weapon, so only a polearm gets there. Filtering the weapons
+	 * rather than banning melee outright keeps the halberd answer — which is the one people actually
+	 * use, and which an earlier blanket rule of mine deleted.
+	 */
+	private List<GearItem> reaching(List<GearItem> pool, CombatStyle style, @Nullable Monster target)
+	{
+		if (!style.isMelee() || !Reachability.requiresReach(target))
+		{
+			return pool;
+		}
+
+		List<GearItem> usable = new ArrayList<>();
+		for (GearItem item : pool)
+		{
+			// Only the weapon slot is constrained; the rest of the setup is unaffected.
+			if (item.getStats().getSlot() != EquipmentSlot.WEAPON.getSlotIndex()
+				|| itemCategories.hasReach(item.getItemId()))
+			{
+				usable.add(item);
+			}
+		}
+
+		return usable;
 	}
 
 	/**

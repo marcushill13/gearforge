@@ -63,6 +63,9 @@ public class SetEffectRegistry
 
 	private static final int TWISTED_BOW = ItemID.TWISTED_BOW;
 
+	private static final int BONE_CLAWS = ItemID.BONE_CLAWS;
+	private static final int SCORCHING_BOW = ItemID.SCORCHING_BOW;
+
 	private static final int CRYSTAL_HELM = ItemID.CRYSTAL_HELMET;
 	private static final int CRYSTAL_BODY = ItemID.CRYSTAL_CHESTPLATE;
 	private static final int CRYSTAL_LEGS = ItemID.CRYSTAL_PLATELEGS;
@@ -228,6 +231,22 @@ public class SetEffectRegistry
 					: "Silverlight: target is demonic");
 				return 1.60;
 			}
+
+			if (ids.contains(BONE_CLAWS))
+			{
+				notes.add("Burning claws: target is demonic");
+				return 1.05;
+			}
+		}
+
+		// The ranged demonbane. Demonbane is not a melee-only idea, and treating it as one left the
+		// scorching bow scoring as an ordinary bow against the things it is built for.
+		if (style.isRanged()
+			&& target.hasAttribute(MonsterAttribute.DEMON)
+			&& ids.contains(SCORCHING_BOW))
+		{
+			notes.add("Scorching bow: target is demonic");
+			return 1.30;
 		}
 
 		// Only the breaching partisan improves accuracy; the rest of the family is damage only.
@@ -275,10 +294,13 @@ public class SetEffectRegistry
 				return 1.70;
 			}
 
-			if (ids.contains(DARKLIGHT) || ids.contains(SILVERLIGHT))
+			if (ids.contains(BONE_CLAWS))
 			{
-				return 1.60;
+				return 1.05;
 			}
+
+			// Darklight and silverlight raise the attack roll only. They had a damage bonus here that
+			// the game does not give them, which overstated them by 60% against every demon.
 		}
 
 		if (target.hasAttribute(MonsterAttribute.KALPHITE) && wearingKeris(ids))
