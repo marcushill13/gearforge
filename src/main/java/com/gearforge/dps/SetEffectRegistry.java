@@ -64,6 +64,15 @@ public class SetEffectRegistry
 	private static final int TWISTED_BOW = ItemID.TWISTED_BOW;
 
 	private static final int BONE_CLAWS = ItemID.BONE_CLAWS;
+
+	private static final int BLISTERWOOD_FLAIL = ItemID.BLISTERWOOD_FLAIL;
+	private static final int BLISTERWOOD_SICKLE = ItemID.BLISTERWOOD_SICKLE;
+	private static final int BLISTERWOOD_STAKE = ItemID.BLISTERWOOD_STAKE;
+	private static final int HALLOWED_FLAIL = ItemID.HALLOWED_FLAIL;
+	private static final int IVANDIS_FLAIL = ItemID.IVANDIS_FLAIL;
+	private static final int ROD_OF_IVANDIS = ItemID.BURGH_ROD_COMMAND_FINAL_10;
+	private static final int SILVER_SICKLE = ItemID.SILVER_SICKLE;
+	private static final int GADDERHAMMER = ItemID.GADDERANKS_WARHAMMER;
 	private static final int SCORCHING_BOW = ItemID.SCORCHING_BOW;
 
 	private static final int CRYSTAL_HELM = ItemID.CRYSTAL_HELMET;
@@ -249,6 +258,21 @@ public class SetEffectRegistry
 			return 1.30;
 		}
 
+		if (style.isMelee() && isVampyre(target))
+		{
+			if (ids.contains(HALLOWED_FLAIL) || ids.contains(ItemID.SUNSPEAR))
+			{
+				notes.add("Vampyre bane: target is a vampyre");
+				return 1.25;
+			}
+
+			if (ids.contains(BLISTERWOOD_FLAIL) || ids.contains(BLISTERWOOD_SICKLE))
+			{
+				notes.add("Blisterwood: target is a vampyre");
+				return 1.05;
+			}
+		}
+
 		// Only the breaching partisan improves accuracy; the rest of the family is damage only.
 		if (style.isMelee()
 			&& target.hasAttribute(MonsterAttribute.KALPHITE)
@@ -303,6 +327,56 @@ public class SetEffectRegistry
 			// the game does not give them, which overstated them by 60% against every demon.
 		}
 
+		// The vampyre banes, strongest first. Each supersedes the next rather than stacking.
+		if (isVampyre(target))
+		{
+			if (ids.contains(ItemID.SUNSPEAR))
+			{
+				notes.add("Sunspear: target is a vampyre");
+				return 1.50;
+			}
+
+			if (ids.contains(BLISTERWOOD_FLAIL) || ids.contains(HALLOWED_FLAIL)
+				|| ids.contains(BLISTERWOOD_STAKE))
+			{
+				notes.add("Blisterwood: target is a vampyre");
+				return 1.25;
+			}
+
+			if (ids.contains(BLISTERWOOD_SICKLE))
+			{
+				notes.add("Blisterwood sickle: target is a vampyre");
+				return 23.0 / 20.0;
+			}
+
+			if (ids.contains(IVANDIS_FLAIL))
+			{
+				notes.add("Ivandis flail: target is a vampyre");
+				return 6.0 / 5.0;
+			}
+
+			// The rod does nothing to the strongest tier.
+			if (wearingFamily(ids, ROD_OF_IVANDIS) && !target.hasAttribute(MonsterAttribute.VAMPYRE3))
+			{
+				notes.add("Rod of ivandis: target is a vampyre");
+				return 1.10;
+			}
+
+			if (target.hasAttribute(MonsterAttribute.VAMPYRE1) && ids.contains(SILVER_SICKLE))
+			{
+				notes.add("Silver: target is a lesser vampyre");
+				return 1.10;
+			}
+		}
+
+		if (target.hasAttribute(MonsterAttribute.SHADE) && ids.contains(GADDERHAMMER))
+		{
+			// A twentieth of its hits land for double rather than a quarter more; averaged, that is a
+			// little under 29% overall.
+			notes.add("Gadderhammer: target is a shade");
+			return 0.95 * 1.25 + 0.05 * 2.0;
+		}
+
 		if (target.hasAttribute(MonsterAttribute.KALPHITE) && wearingKeris(ids))
 		{
 			// The amascut partisan trades the family's damage bonus down for effects we do not model.
@@ -345,6 +419,17 @@ public class SetEffectRegistry
 	 *
 	 * @return accuracy and damage multipliers, both 1.0 when the set does not apply
 	 */
+	/**
+	 * Any of the three vampyre tiers. They are separate attributes because the banes treat them
+	 * differently — the rod is useless against the strongest, and silver only troubles the weakest.
+	 */
+	private static boolean isVampyre(Target target)
+	{
+		return target.hasAttribute(MonsterAttribute.VAMPYRE1)
+			|| target.hasAttribute(MonsterAttribute.VAMPYRE2)
+			|| target.hasAttribute(MonsterAttribute.VAMPYRE3);
+	}
+
 	private static double[] crystalArmour(Set<Integer> ids, CombatStyle style, List<String> notes)
 	{
 		if (!style.isRanged() || !(wearingFamily(ids, CRYSTAL_BOW) || wearingFamily(ids, BOW_OF_FAERDHINEN)))
