@@ -188,9 +188,15 @@ public class DpsOptimizer
 			{
 				// Ammo has to actually fit the weapon — otherwise the search happily pairs a crossbow
 				// with arrows, which reads as a confident recommendation and is simply wrong.
+				//
+				// A weapon that fires nothing is worse than that. Knives and darts are thrown from the
+				// hand, so a quiver of bolts worn beside them adds nothing in game — but its ranged
+				// strength was being summed into the setup all the same, which is how rune knives came
+				// to out-score a bow of faerdhinen.
 				if (slot == EquipmentSlot.AMMO
 					&& weapon != null
-					&& !itemCategories.ammoFits(weapon.getItemId(), candidate.getItemId()))
+					&& (!itemCategories.requiresAmmo(weapon.getItemId())
+						|| !itemCategories.ammoFits(weapon.getItemId(), candidate.getItemId())))
 				{
 					continue;
 				}
@@ -227,7 +233,7 @@ public class DpsOptimizer
 			SetEffects effects = setEffects.evaluate(
 				setup.values(), template.getStyle(), template.getTarget(), onSlayerTask);
 
-			ScoredSetup candidate = new ScoredSetup(setup, score(setup, template, onSlayerTask), effects.getNotes());
+			ScoredSetup candidate = new ScoredSetup(setup, score(setup, template, onSlayerTask), template.getStyle(), effects.getNotes());
 			if (seen.add(candidate.signature()))
 			{
 				scored.add(candidate);
@@ -366,7 +372,7 @@ public class DpsOptimizer
 	{
 		return Comparator
 			.comparingInt((GearItem item) -> style.attackBonusOf(item.getStats())).reversed()
-			.thenComparing(BY_DEFENSIVE_VALUE);
+			.thenComparing(tieBreak(style));
 	}
 
 	private static Comparator<GearItem> damageRelevance(CombatStyle style)
@@ -375,19 +381,19 @@ public class DpsOptimizer
 		{
 			return Comparator
 				.comparingDouble((GearItem item) -> item.getStats().getMagicDamage()).reversed()
-				.thenComparing(BY_DEFENSIVE_VALUE);
+				.thenComparing(tieBreak(style));
 		}
 
 		if (style.isRanged())
 		{
 			return Comparator
 				.comparingInt((GearItem item) -> item.getStats().getRangedStrength()).reversed()
-				.thenComparing(BY_DEFENSIVE_VALUE);
+				.thenComparing(tieBreak(style));
 		}
 
 		return Comparator
 			.comparingInt((GearItem item) -> item.getStats().getStrength()).reversed()
-			.thenComparing(BY_DEFENSIVE_VALUE);
+			.thenComparing(tieBreak(style));
 	}
 
 	/**
@@ -406,6 +412,30 @@ public class DpsOptimizer
 		.comparingInt((GearItem item) -> defensiveValue(item.getStats())).reversed()
 		.thenComparing(Comparator.comparingInt((GearItem item) -> item.getStats().getPrayer()).reversed())
 		.thenComparing(GearItem::getName);
+
+	/**
+	 * Ranks the pieces that are level on the stat being sorted by. Strength before defence: Dharok's
+	 * platelegs are tankier than oathplate legs and worse in every way that matters, and defence alone
+	 * put them first.
+	 */
+	private static Comparator<GearItem> tieBreak(CombatStyle style)
+	{
+		return Comparator
+			.comparingInt((GearItem item) -> strengthFor(style, item)).reversed()
+			.thenComparing(BY_DEFENSIVE_VALUE);
+	}
+
+	private static int strengthFor(CombatStyle style, GearItem item)
+	{
+		EquipmentStats stats = item.getStats();
+
+		if (style.isRanged())
+		{
+			return stats.getRangedStrength();
+		}
+
+		return style.isMagic() ? (int) (stats.getMagicDamage() * 10) : stats.getStrength();
+	}
 
 	static int defensiveValue(EquipmentStats stats)
 	{

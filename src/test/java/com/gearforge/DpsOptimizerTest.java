@@ -320,4 +320,90 @@ public class DpsOptimizerTest
 
 		return new GearItem(id, name, 1, stats, EnumSet.of(Storage.BANK));
 	}
+
+	/**
+	 * A thrown weapon is thrown from the hand. Bolts worn beside knives do nothing in game, but their
+	 * ranged strength was being summed into the setup — which is how rune knives came to out-score a
+	 * bow of faerdhinen in a real player's bank.
+	 */
+	@Test
+	public void aThrownWeaponIsNotCreditedWithAmmoItCannotFire()
+	{
+		List<GearItem> owned = Arrays.asList(
+			rangedWeapon(ItemID.RUNE_KNIFE, "Rune knife", 40, 3),
+			ammo(ItemID.DRAGON_BOLTS_ENCHANTED_RUBY, "Ruby dragon bolts (e)", 122));
+
+		CombatContext ranged = melee().toBuilder()
+			.style(CombatStyle.RANGED)
+			.rangedLevel(99)
+			.build();
+
+		List<ScoredSetup> results = optimizer.best(owned, ranged, false, 1);
+
+		assertFalse(results.isEmpty());
+		assertNull("Bolts cannot be worn to feed a thrown weapon",
+			results.get(0).getSetup().get(EquipmentSlot.AMMO));
+	}
+
+	/**
+	 * The rule has to stay narrow: a bow still needs its arrows.
+	 */
+	@Test
+	public void aBowKeepsItsArrows()
+	{
+		List<GearItem> owned = Arrays.asList(
+			rangedWeapon(ItemID.MAGIC_SHORTBOW, "Magic shortbow", 40, 4),
+			ammo(ItemID.RUNE_ARROW, "Rune arrow", 49));
+
+		CombatContext ranged = melee().toBuilder()
+			.style(CombatStyle.RANGED)
+			.rangedLevel(99)
+			.build();
+
+		List<ScoredSetup> results = optimizer.best(owned, ranged, false, 1);
+
+		assertFalse(results.isEmpty());
+		assertNotNull("A bow needs arrows to shoot",
+			results.get(0).getSetup().get(EquipmentSlot.AMMO));
+	}
+
+	/**
+	 * The reported bug: Dharok's platelegs recommended over oathplate legs. Dharok's are tankier and
+	 * worse in every way that matters — no strength, no attack — but two strength rarely changes an
+	 * integer max hit, so the DPS tied and defence alone handed it to the wrong pair.
+	 */
+	@Test
+	public void aStrictlyBetterOffensivePieceBeatsATankierOne()
+	{
+		List<GearItem> owned = Arrays.asList(
+			weapon(1, "Abyssal whip", 82, 82, 4, false),
+			// Real numbers for the two legs.
+			legs(2, "Dharok's platelegs", 0, 0, 85, 82, 83),
+			legs(3, "Oathplate legs", 12, 2, 75, 100, 73));
+
+		for (CombatStyle style : new CombatStyle[]{CombatStyle.SLASH, CombatStyle.STAB, CombatStyle.CRUSH})
+		{
+			CombatContext context = melee().toBuilder().style(style).build();
+			List<ScoredSetup> results = optimizer.best(owned, context, false, 1);
+
+			assertFalse(results.isEmpty());
+			assertEquals("Wrong legs for " + style, "Oathplate legs",
+				results.get(0).getSetup().get(EquipmentSlot.LEGS).getName());
+		}
+	}
+
+	private static GearItem legs(
+		int id, String name, int slash, int strength, int dstab, int dslash, int dcrush)
+	{
+		EquipmentStats stats = EquipmentStats.builder()
+			.aslash(slash)
+			.strength(strength)
+			.dstab(dstab)
+			.dslash(dslash)
+			.dcrush(dcrush)
+			.slot(EquipmentSlot.LEGS.getSlotIndex())
+			.build();
+
+		return new GearItem(id, name, 1, stats, EnumSet.of(Storage.BANK));
+	}
 }
