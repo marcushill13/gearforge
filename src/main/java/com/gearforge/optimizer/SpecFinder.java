@@ -4,6 +4,8 @@ import com.gearforge.data.EquipmentSlot;
 import com.gearforge.data.EquipmentStats;
 import com.gearforge.data.GearItem;
 import com.gearforge.data.ItemCategories;
+import com.gearforge.data.Monster;
+import com.gearforge.data.Reachability;
 import com.gearforge.dps.CombatContext;
 import com.gearforge.dps.CombatStyle;
 import com.gearforge.dps.DamageDistribution;
@@ -18,6 +20,7 @@ import java.util.Collections;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import javax.annotation.Nullable;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 
@@ -59,6 +62,17 @@ public class SpecFinder
 	public List<SpecSuggestion> find(
 		Map<EquipmentSlot, GearItem> setup, List<GearItem> owned, CombatContext template)
 	{
+		return find(setup, owned, template, null);
+	}
+
+	/**
+	 * @param monster the target, so a special that cannot physically reach it is not suggested — a
+	 *                dragon warhammer is useless at Zulrah however good its numbers look
+	 */
+	public List<SpecSuggestion> find(
+		Map<EquipmentSlot, GearItem> setup, List<GearItem> owned, CombatContext template,
+		@Nullable Monster monster)
+	{
 		SetupScore baseline = engine.score(template);
 		if (baseline.getDps() <= 0)
 		{
@@ -76,15 +90,34 @@ public class SpecFinder
 				continue;
 			}
 
-			// Everything owned is returned, including specs that are not worth using here. Filtering them
-			// out made owning a weapon look identical to not owning one, which is the complaint that
-			// prompted this: a dragon scimitar's accuracy special adds nothing against a crab you
-			// already never miss, and silence is the wrong way to say so.
+			// A special that cannot reach the target is not a weaker suggestion, it is an impossible one.
+			if (!canReach(candidate, monster))
+			{
+				continue;
+			}
+
+			// Everything else owned is returned, including specials that are not worth using here.
+			// Filtering those out made owning a weapon look identical to not owning one.
 			suggestions.add(evaluate(special, candidate, setup, template, baseline, normalHit));
 		}
 
 		suggestions.sort(SpecSuggestion.BEST_FIRST);
 		return suggestions;
+	}
+
+	/**
+	 * Whether this special could physically be used on the target. Melee needs the reach; a bow does
+	 * not care.
+	 */
+	private boolean canReach(GearItem weapon, @Nullable Monster monster)
+	{
+		if (monster == null || styleFor(weapon) == CombatStyle.RANGED
+			|| styleFor(weapon) == CombatStyle.MAGIC)
+		{
+			return true;
+		}
+
+		return Reachability.meleeCanReach(monster, itemCategories.hasReach(weapon.getItemId()));
 	}
 
 	private SpecSuggestion evaluate(

@@ -600,7 +600,7 @@ class BisTab extends JPanel
 			CombatContext context = contextFor(profile, levels, target, prayer, potion);
 			List<ScoredSetup> best =
 				dpsOptimizer.best(reaching(pooled, profile.getStyle(), target), context, slayerTask, 3);
-			List<SpecSuggestion> specs = specsFor(best, everySpecWeapon, context);
+			List<SpecSuggestion> specs = specsFor(best, everySpecWeapon, context, target);
 			SwingUtilities.invokeLater(() -> renderOffensive(best, specs, profile, pool, target));
 		}
 		else
@@ -813,8 +813,9 @@ class BisTab extends JPanel
 	 * whole point being that your body slot's strength bonus changes what the claws hit for.
 	 */
 	private List<SpecSuggestion> specsFor(
-		List<ScoredSetup> best, List<GearItem> pooled, CombatContext context)
+		List<ScoredSetup> best, List<GearItem> pooled, CombatContext context, @Nullable Monster target)
 	{
+		// The target decides which specials are even usable — a warhammer cannot reach Zulrah.
 		if (best.isEmpty())
 		{
 			return Collections.emptyList();
@@ -836,7 +837,7 @@ class BisTab extends JPanel
 		return specFinder.find(winner, pooled, context.toBuilder()
 			.equipment(EquipmentStats.sum(pieces))
 			.weaponSpeedTicks(speed)
-			.build());
+			.build(), target);
 	}
 
 	/**

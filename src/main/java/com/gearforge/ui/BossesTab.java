@@ -9,7 +9,9 @@ import com.gearforge.data.ItemRequirements;
 import com.gearforge.data.ItemStatEngine;
 import com.gearforge.data.Monster;
 import com.gearforge.data.MonsterRepository;
+import com.gearforge.data.ItemCategories;
 import com.gearforge.data.PlayerLevels;
+import com.gearforge.data.Reachability;
 import com.gearforge.data.PlayerModel;
 import com.gearforge.dps.CombatContext;
 import com.gearforge.dps.CombatPrayer;
@@ -87,6 +89,7 @@ class BossesTab extends JPanel
 	private final ItemStatEngine statEngine;
 	private final PlayerModel playerModel;
 	private final ItemRequirements itemRequirements;
+	private final ItemCategories itemCategories;
 	private final DpsOptimizer dpsOptimizer;
 	private final MonsterRepository monsters;
 	private final SetupStore setupStore;
@@ -112,6 +115,7 @@ class BossesTab extends JPanel
 		ItemStatEngine statEngine,
 		PlayerModel playerModel,
 		ItemRequirements itemRequirements,
+		ItemCategories itemCategories,
 		DpsOptimizer dpsOptimizer,
 		MonsterRepository monsters,
 		SetupStore setupStore,
@@ -124,6 +128,7 @@ class BossesTab extends JPanel
 		this.statEngine = statEngine;
 		this.playerModel = playerModel;
 		this.itemRequirements = itemRequirements;
+		this.itemCategories = itemCategories;
 		this.dpsOptimizer = dpsOptimizer;
 		this.monsters = monsters;
 		this.setupStore = setupStore;
@@ -290,17 +295,25 @@ class BossesTab extends JPanel
 		List<GearItem> owned = usableGear(resolved, levels);
 		Target target = monster.toTarget();
 
-		// Only count slayer bonuses when the player actually has a task and this is something a
-		// slayer master assigns — assuming either way skews the numbers.
-		boolean onTask = levels.isOnSlayerTask() && monster.isSlayerMonster();
+		// Having a task tells us nothing about whether *this* is it. A dust devil task does not make
+		// a slayer helmet work at Zulrah, and treating "has a task" as "on this task" inflated every
+		// boss a slayer master can assign. Off unless the player says otherwise.
+		boolean onTask = false;
 
 		List<ScoredSetup> byStyle = new ArrayList<>();
 		List<CombatStyle> styleOf = new ArrayList<>();
 
 		for (CombatStyle style : STYLES)
 		{
+			// Melee against something nothing can reach is not an answer, and where only a long weapon
+			// reaches, only the long weapons are. This tab never had the filter.
+			if (style.isMelee() && !Reachability.meleeIsPossible(monster))
+			{
+				continue;
+			}
+
 			List<ScoredSetup> best = dpsOptimizer.best(
-				owned, contextFor(style, levels, target), onTask, 1);
+				reaching(owned, style, monster), contextFor(style, levels, target, monster), onTask, 1);
 
 			if (!best.isEmpty())
 			{
@@ -326,7 +339,32 @@ class BossesTab extends JPanel
 		return usable;
 	}
 
-	private CombatContext contextFor(CombatStyle style, PlayerLevels levels, Target target)
+	/**
+	 * Drops melee weapons that cannot physically reach the target — the same rule the BiS tab uses. It
+	 * was missing here, which is how a blade of saeldor came to be recommended for Zulrah.
+	 */
+	private List<GearItem> reaching(List<GearItem> pool, CombatStyle style, Monster monster)
+	{
+		if (!style.isMelee() || !Reachability.requiresReach(monster))
+		{
+			return pool;
+		}
+
+		List<GearItem> usable = new ArrayList<>();
+		for (GearItem item : pool)
+		{
+			if (item.getStats().getSlot() != EquipmentSlot.WEAPON.getSlotIndex()
+				|| itemCategories.hasReach(item.getItemId()))
+			{
+				usable.add(item);
+			}
+		}
+
+		return usable;
+	}
+
+	private CombatContext contextFor(
+		CombatStyle style, PlayerLevels levels, Target target, Monster monster)
 	{
 		// Bosses are fought with prayers and potions up, so score that way. Leaving them out can flip
 		// which item wins, because they do not scale every item evenly.
