@@ -406,4 +406,60 @@ public class DpsOptimizerTest
 
 		return new GearItem(id, name, 1, stats, EnumSet.of(Storage.BANK));
 	}
+
+	/**
+	 * A whip's three attack options are all slash. Offering one for a crush setup is not a slightly
+	 * wrong answer, it is an impossible one — and the optimizer produced exactly that, because it read
+	 * the crush bonus off the item and never asked whether the weapon could swing that way.
+	 */
+	@Test
+	public void aWhipIsNotOfferedForCrush()
+	{
+		List<GearItem> owned = Arrays.asList(
+			weapon(ItemID.ABYSSAL_TENTACLE, "Abyssal tentacle", 90, 86, 4, false),
+			weapon(ItemID.GRANITE_MAUL, "Granite maul", 81, 79, 7, false));
+
+		CombatContext crush = melee().toBuilder().style(CombatStyle.CRUSH).build();
+		List<ScoredSetup> results = optimizer.best(owned, crush, false, 1);
+
+		assertFalse(results.isEmpty());
+		assertEquals("A whip cannot crush", "Granite maul",
+			results.get(0).getSetup().get(EquipmentSlot.WEAPON).getName());
+	}
+
+	/**
+	 * A blowpipe fires the darts loaded into it. Both are weapon-slot items, so the two never met in
+	 * the search and the pipe was scored on a fraction of its real strength.
+	 */
+	@Test
+	public void aBlowpipeIsLoadedWithTheBestDart()
+	{
+		GearItem blowpipe = rangedWeapon(12926, "Toxic blowpipe", 30, 3);
+		GearItem knife = rangedWeapon(ItemID.RUNE_KNIFE, "Rune knife", 30, 3);
+
+		CombatContext ranged = melee().toBuilder().style(CombatStyle.RANGED).rangedLevel(99).build();
+
+		// Without a dart in the bank the pipe is only its own strength, and the knife wins.
+		List<ScoredSetup> withoutDarts = optimizer.best(
+			Arrays.asList(blowpipe, knife), ranged, false, 1);
+		assertEquals("Rune knife",
+			withoutDarts.get(0).getSetup().get(EquipmentSlot.WEAPON).getName());
+
+		// With dragon darts to load, the pipe should win.
+		List<ScoredSetup> withDarts = optimizer.best(
+			Arrays.asList(blowpipe, knife, dart(11230, "Dragon dart", 35)), ranged, false, 1);
+		assertEquals("Toxic blowpipe",
+			withDarts.get(0).getSetup().get(EquipmentSlot.WEAPON).getName());
+	}
+
+	private static GearItem dart(int id, String name, int rangedStrength)
+	{
+		EquipmentStats stats = EquipmentStats.builder()
+			.rangedStrength(rangedStrength)
+			.slot(EquipmentSlot.WEAPON.getSlotIndex())
+			.speed(3)
+			.build();
+
+		return new GearItem(id, name, 1, stats, EnumSet.of(Storage.BANK));
+	}
 }

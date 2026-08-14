@@ -55,8 +55,12 @@ function classifyWeapon(item) {
     case 'Polearm':
       return 'POLEARM';
     default:
-      // Melee weapons need no ammo and are left unclassified.
-      return null;
+      // Melee weapons need no ammo, but their category still decides which attack styles they offer.
+      // A whip has only slash options; recommending one for a crush setup is impossible, not merely
+      // suboptimal. Keeping the raw category is what lets that be checked.
+      return item.category
+        ? item.category.toUpperCase().replace(/[^A-Z0-9]+/g, '_')
+        : null;
   }
 }
 

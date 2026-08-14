@@ -64,6 +64,16 @@ public class DpsOptimizer
 	/** Rerolls a magic miss, but only alongside a one-handed weapon. */
 	private static final int CONFLICTION_GAUNTLETS = 31106;
 
+	/**
+	 * The blowpipes, which are loaded with darts rather than fed from the ammo slot.
+	 * <p>
+	 * Both the pipe and the dart are weapon-slot items, so nothing ever put them together: a toxic
+	 * blowpipe was scored on its own 20 ranged strength while rune knives scored 26, and the knives
+	 * won. In game the dart's strength adds to the pipe's, which is the whole point of the weapon.
+	 */
+	private static final Set<Integer> BLOWPIPES = new HashSet<>(Arrays.asList(
+		12926, 12924, 28688, 28687, 30374, 30373, 31575, 31577, 31579, 31581, 31583, 31585));
+
 	/** Thrown with the arm rather than drawn, so it reads Strength instead of Ranged. */
 	private static final int ECLIPSE_ATLATL = 29000;
 
@@ -133,6 +143,9 @@ public class DpsOptimizer
 	{
 		Map<EquipmentSlot, List<GearItem>> candidates = buildCandidates(owned, template.getStyle());
 
+		// Worked out once: a blowpipe is only as good as the best dart in the bank.
+		int dartStrength = bestDartStrength(owned);
+
 		List<GearItem> weapons = candidates.get(EquipmentSlot.WEAPON);
 		if (weapons == null || weapons.isEmpty())
 		{
@@ -144,10 +157,10 @@ public class DpsOptimizer
 
 		for (EquipmentSlot slot : SLOT_ORDER)
 		{
-			beam = extend(beam, slot, candidates.get(slot), template, onSlayerTask);
+			beam = extend(beam, slot, candidates.get(slot), template, onSlayerTask, dartStrength);
 		}
 
-		return rank(beam, template, onSlayerTask, topN);
+		return rank(beam, template, onSlayerTask, topN, dartStrength);
 	}
 
 	/**
@@ -159,7 +172,8 @@ public class DpsOptimizer
 		EquipmentSlot slot,
 		@Nullable List<GearItem> slotCandidates,
 		CombatContext template,
-		boolean onSlayerTask)
+		boolean onSlayerTask,
+		int dartStrength)
 	{
 		List<Map<EquipmentSlot, GearItem>> grown = new ArrayList<>();
 
@@ -214,7 +228,7 @@ public class DpsOptimizer
 		}
 
 		grown.sort(Comparator.comparingDouble(
-			(Map<EquipmentSlot, GearItem> setup) -> score(setup, template, onSlayerTask).getDps()).reversed());
+			(Map<EquipmentSlot, GearItem> setup) -> score(setup, template, onSlayerTask, dartStrength).getDps()).reversed());
 
 		return grown.subList(0, Math.min(BEAM_WIDTH, grown.size()));
 	}
@@ -223,7 +237,8 @@ public class DpsOptimizer
 		List<Map<EquipmentSlot, GearItem>> beam,
 		CombatContext template,
 		boolean onSlayerTask,
-		int topN)
+		int topN,
+		int dartStrength)
 	{
 		List<ScoredSetup> scored = new ArrayList<>();
 		Set<String> seen = new HashSet<>();
@@ -233,7 +248,7 @@ public class DpsOptimizer
 			SetEffects effects = setEffects.evaluate(
 				setup.values(), template.getStyle(), template.getTarget(), onSlayerTask);
 
-			ScoredSetup candidate = new ScoredSetup(setup, score(setup, template, onSlayerTask), template.getStyle(), effects.getNotes());
+			ScoredSetup candidate = new ScoredSetup(setup, score(setup, template, onSlayerTask, dartStrength), template.getStyle(), effects.getNotes());
 			if (seen.add(candidate.signature()))
 			{
 				scored.add(candidate);
@@ -245,9 +260,29 @@ public class DpsOptimizer
 	}
 
 	/**
+	 * The strongest dart in the bank, which is what a blowpipe would be loaded with.
+	 */
+	private static int bestDartStrength(Collection<GearItem> owned)
+	{
+		int best = 0;
+		for (GearItem item : owned)
+		{
+			if (item.getName().toLowerCase().endsWith("dart")
+				&& item.getStats().getRangedStrength() > best)
+			{
+				best = item.getStats().getRangedStrength();
+			}
+		}
+
+		return best;
+	}
+
+	/**
 	 * Scores a complete or partial setup. Empty slots simply contribute nothing.
 	 */
-	private SetupScore score(Map<EquipmentSlot, GearItem> setup, CombatContext template, boolean onSlayerTask)
+	private SetupScore score(
+		Map<EquipmentSlot, GearItem> setup, CombatContext template, boolean onSlayerTask,
+		int dartStrength)
 	{
 		GearItem weapon = setup.get(EquipmentSlot.WEAPON);
 		if (weapon == null)
@@ -269,6 +304,13 @@ public class DpsOptimizer
 		for (GearItem item : setup.values())
 		{
 			pieces.add(item.getStats());
+		}
+
+		// A blowpipe fires the darts loaded into it, and both are weapon-slot items, so the two never
+		// met in the search. Without the dart the pipe is scored on a fraction of its real strength.
+		if (BLOWPIPES.contains(weapon.getItemId()) && dartStrength > 0)
+		{
+			pieces.add(EquipmentStats.builder().rangedStrength(dartStrength).build());
 		}
 
 		SetEffects effects = setEffects.evaluate(
@@ -306,6 +348,13 @@ public class DpsOptimizer
 		for (GearItem item : owned)
 		{
 			EquipmentSlot slot = EquipmentSlot.fromSlotIndex(item.getStats().getSlot());
+
+			// A weapon that cannot swing this way is not a candidate. A whip's three attack options are
+			// all slash, so offering one for a crush setup was recommending something impossible.
+			if (slot == EquipmentSlot.WEAPON && !itemCategories.canUseStyle(item.getItemId(), style))
+			{
+				continue;
+			}
 			if (slot != null)
 			{
 				bySlot.computeIfAbsent(slot, key -> new ArrayList<>()).add(item);

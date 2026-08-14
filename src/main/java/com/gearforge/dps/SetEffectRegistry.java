@@ -34,8 +34,6 @@ import net.runelite.client.game.ItemVariationMapping;
 /*
  * Deliberately absent, with the reason for each, so the gaps read as decisions rather than oversights:
  *
- * - Soulreaper axe: its accuracy and damage climb with soul stacks, which are built during a fight.
- *   A tool that recommends gear before the fight has no stack count to read.
  * - Lightbearer: restores special attack energy. Real, and not damage — it changes how often you can
  *   spec, not how hard anything hits.
  * - Keris partisan of the sun: a quarter more accuracy against Tombs of Amascut monsters below a
@@ -103,6 +101,15 @@ public class SetEffectRegistry
 
 	/** The dyed silverlight behaves exactly as the plain one does. */
 	private static final int SILVERLIGHT_DYED = 6745;
+
+	private static final int SOULREAPER_AXE = 28338;
+	private static final int SOULREAPER_AXE_ORNATE = 33335;
+
+	/**
+	 * Stacks assumed for the soulreaper axe. Five is the maximum and what it is used at; the panel says
+	 * so beside the recommendation rather than quietly picking a number.
+	 */
+	private static final int SOULREAPER_STACKS = 5;
 
 	private static final int CRYSTAL_BLESSING = 30384;
 	private static final int CHAOS_GAUNTLETS = 777;
@@ -278,6 +285,16 @@ public class SetEffectRegistry
 				damage *= (40.0 + pieces) / 40.0;
 				notes.add("Crystal blessing: " + pieces + " of 6 with crystal armour");
 			}
+		}
+
+		// The soulreaper axe at a full five stacks, which is how it is used and how every DPS calculator
+		// quotes it. Stacks are built during a fight and cannot be read from a bank, so assuming none
+		// left the axe scoring below weapons it comfortably beats — the nox halberd among them.
+		if (style.isMelee() && (ids.contains(SOULREAPER_AXE) || ids.contains(SOULREAPER_AXE_ORNATE)))
+		{
+			accuracy *= 1 + 0.12 * SOULREAPER_STACKS;
+			damage *= 1 + 0.06 * SOULREAPER_STACKS;
+			notes.add("Soulreaper axe: assumes " + SOULREAPER_STACKS + " stacks");
 		}
 
 		int flatMaxHit = flatMaxHitBonus(ids, style, target, notes);

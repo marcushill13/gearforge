@@ -7,7 +7,10 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
+import com.gearforge.dps.CombatStyle;
+import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.Set;
 import java.util.Map;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
@@ -112,6 +115,69 @@ public class ItemCategories
 	 *
 	 * @param style the combat style being optimised, as {@code CombatStyle#name()}
 	 */
+	/**
+	 * The attack styles a weapon category actually offers.
+	 * <p>
+	 * A whip has three options and every one of them is slash — it cannot crush at all. Recommending
+	 * "melee — crush, abyssal tentacle" is not a slightly wrong answer, it is an impossible one, and the
+	 * optimizer was producing exactly that because it read the crush bonus off the item and never asked
+	 * whether the weapon could swing that way.
+	 * <p>
+	 * Transcribed from the reference calculator's style table.
+	 */
+	private static final Map<String, Set<CombatStyle>> STYLES_BY_CATEGORY = buildStyles();
+
+	private static Map<String, Set<CombatStyle>> buildStyles()
+	{
+		Map<String, Set<CombatStyle>> styles = new HashMap<>();
+
+		styles.put("WHIP", EnumSet.of(CombatStyle.SLASH));
+		styles.put("FLAIL", EnumSet.of(CombatStyle.SLASH));
+		styles.put("SLASH_SWORD", EnumSet.of(CombatStyle.SLASH, CombatStyle.STAB));
+		styles.put("STAB_SWORD", EnumSet.of(CombatStyle.SLASH, CombatStyle.STAB));
+		styles.put("CLAW", EnumSet.of(CombatStyle.SLASH, CombatStyle.STAB));
+		styles.put("POLEARM", EnumSet.of(CombatStyle.SLASH, CombatStyle.STAB));
+		styles.put("TWO_HANDED_SWORD", EnumSet.of(CombatStyle.SLASH, CombatStyle.CRUSH));
+		styles.put("2H_SWORD", EnumSet.of(CombatStyle.SLASH, CombatStyle.CRUSH));
+		styles.put("AXE", EnumSet.of(CombatStyle.SLASH, CombatStyle.CRUSH));
+		styles.put("SCYTHE", EnumSet.of(CombatStyle.SLASH, CombatStyle.CRUSH));
+		styles.put("BLUNT", EnumSet.of(CombatStyle.CRUSH));
+		styles.put("BLUDGEON", EnumSet.of(CombatStyle.CRUSH));
+		styles.put("POLESTAFF", EnumSet.of(CombatStyle.CRUSH));
+		styles.put("BULWARK", EnumSet.of(CombatStyle.CRUSH));
+		styles.put("GUN", EnumSet.of(CombatStyle.CRUSH));
+		styles.put("UNARMED", EnumSet.of(CombatStyle.CRUSH));
+		styles.put("PICKAXE", EnumSet.of(CombatStyle.CRUSH, CombatStyle.STAB));
+		styles.put("PARTISAN", EnumSet.of(CombatStyle.CRUSH, CombatStyle.STAB));
+		styles.put("SPIKED", EnumSet.of(CombatStyle.CRUSH, CombatStyle.STAB));
+		styles.put("SPEAR", EnumSet.of(CombatStyle.CRUSH, CombatStyle.SLASH, CombatStyle.STAB));
+		styles.put("BANNER", EnumSet.of(CombatStyle.CRUSH, CombatStyle.SLASH, CombatStyle.STAB));
+		styles.put("STAFF", EnumSet.of(CombatStyle.CRUSH, CombatStyle.MAGIC));
+		styles.put("BLADED_STAFF",
+			EnumSet.of(CombatStyle.CRUSH, CombatStyle.SLASH, CombatStyle.STAB, CombatStyle.MAGIC));
+		styles.put("POWERED_STAFF", EnumSet.of(CombatStyle.MAGIC));
+		styles.put("SALAMANDER", EnumSet.of(CombatStyle.MAGIC, CombatStyle.RANGED, CombatStyle.SLASH));
+
+		for (String ranged : new String[]{"BOW", "CROSSBOW", "THROWN", "CHINCHOMPA", "BALLISTA", "OGRE_BOW"})
+		{
+			styles.put(ranged, EnumSet.of(CombatStyle.RANGED));
+		}
+
+		return styles;
+	}
+
+	/**
+	 * Whether this weapon can actually attack with this style.
+	 * <p>
+	 * An unknown category is allowed everything: refusing what we cannot classify would silently delete
+	 * valid answers, which is the worse failure.
+	 */
+	public boolean canUseStyle(int weaponId, CombatStyle style)
+	{
+		Set<CombatStyle> allowed = STYLES_BY_CATEGORY.get(categoryOf(weaponId));
+		return allowed == null || allowed.contains(style);
+	}
+
 	/**
 	 * Whether this weapon reaches two tiles. Polearms do; everything else stops at one, which is the
 	 * difference between being able to melee Zulrah and not.
