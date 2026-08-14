@@ -999,6 +999,11 @@ class BisTab extends JPanel
 		JPanel text = new JPanel();
 		text.setLayout(new BoxLayout(text, BoxLayout.Y_AXIS));
 		text.setBackground(row.getBackground());
+		// BorderLayout gives the centre whatever the sides do not take, but it will not shrink a centre
+		// below its minimum — it squeezes the east side to nothing instead. A label's minimum is the
+		// width of its text, so the damage figure was being pushed off the panel entirely. Padding could
+		// never fix that, which is why it kept coming back.
+		text.setMinimumSize(new Dimension(0, 0));
 
 		JLabel name = new JLabel(suggestion.getSpecial().getDisplayName());
 		name.setFont(FontManager.getRunescapeBoldFont());
@@ -1027,6 +1032,10 @@ class BisTab extends JPanel
 			: "—");
 		added.setFont(FontManager.getRunescapeBoldFont());
 		added.setForeground(worthwhile ? ColorScheme.BRAND_ORANGE : Cards.mutedColor());
+		added.setHorizontalAlignment(SwingConstants.RIGHT);
+		// Reserved outright, so it cannot be negotiated away by a long weapon name.
+		added.setPreferredSize(new Dimension(34, added.getPreferredSize().height));
+		added.setMinimumSize(new Dimension(34, added.getPreferredSize().height));
 		row.add(added, BorderLayout.EAST);
 
 		row.setMaximumSize(new Dimension(Integer.MAX_VALUE, row.getPreferredSize().height));

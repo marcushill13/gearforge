@@ -34,6 +34,20 @@ public class MonsterRepository
 {
 	private static final String RESOURCE = "/com/gearforge/monsters.json";
 
+	/** What a fight is called, against what its monsters are called. */
+	private static final Map<String, String[]> ALIASES = buildAliases();
+
+	private static Map<String, String[]> buildAliases()
+	{
+		Map<String, String[]> aliases = new LinkedHashMap<>();
+		aliases.put("royal titans", new String[]{"branda", "eldric"});
+		aliases.put("dagannoth kings", new String[]{"dagannoth rex", "dagannoth prime", "dagannoth supreme"});
+		aliases.put("dks", new String[]{"dagannoth rex", "dagannoth prime", "dagannoth supreme"});
+		aliases.put("desert treasure", new String[]{"vardorvis", "duke sucellus", "leviathan", "whisperer"});
+		aliases.put("gauntlet", new String[]{"crystalline hunllef", "corrupted hunllef"});
+		return aliases;
+	}
+
 	private final List<Monster> monsters;
 	private final String attribution;
 
@@ -314,13 +328,42 @@ public class MonsterRepository
 
 		for (Monster monster : within)
 		{
-			if (needle.isEmpty() || monster.displayName().toLowerCase(Locale.ROOT).contains(needle))
+			String name = monster.displayName().toLowerCase(Locale.ROOT);
+
+			if (needle.isEmpty() || name.contains(needle) || matchesAlias(needle, name))
 			{
 				matches.add(monster);
 			}
 		}
 
 		return matches;
+	}
+
+	/**
+	 * Names people search by that no monster is actually called.
+	 * <p>
+	 * The Royal Titans are two separate NPCs, Branda and Eldric, so searching what the fight is called
+	 * found nothing at all.
+	 */
+	private static boolean matchesAlias(String needle, String name)
+	{
+		for (Map.Entry<String, String[]> alias : ALIASES.entrySet())
+		{
+			if (!alias.getKey().startsWith(needle))
+			{
+				continue;
+			}
+
+			for (String member : alias.getValue())
+			{
+				if (name.contains(member))
+				{
+					return true;
+				}
+			}
+		}
+
+		return false;
 	}
 
 	/**

@@ -26,6 +26,11 @@ const OUTPUT = resolve(here, '../src/main/resources/com/gearforge/monsters.json'
  * Bosses worth shipping. Matched on exact name; every version of a matched name is kept so phase
  * and variant selection works (Zulrah's forms, Vorkath, Olm's hands).
  */
+/**
+ * Below this, an ordinary monster is not worth listing. Bosses and slayer creatures are exempt.
+ */
+const MINIMUM_LEVEL = 50;
+
 const BOSSES = [
   // God Wars Dungeon
   'General Graardor', "K'ril Tsutsaroth", 'Commander Zilyana', "Kree'arra", 'Nex',
@@ -82,6 +87,13 @@ async function main() {
     const isBoss = WANTED.has(monster.name);
     if (isBoss) {
       matched.add(monster.name);
+    }
+
+    // Nobody looks up their best-in-slot for a level 13 zombie — they use a DPS calculator for that,
+    // and every one of these makes the picker longer for everyone else. Bosses and slayer creatures
+    // are kept at any level, because a low-level slayer task is still a task you grind.
+    if (!isBoss && !monster.is_slayer_monster && (monster.level ?? 0) < MINIMUM_LEVEL) {
+      continue;
     }
 
     const defensive = monster.defensive ?? {};

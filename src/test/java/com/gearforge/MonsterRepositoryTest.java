@@ -124,4 +124,35 @@ public class MonsterRepositoryTest
 			.filter(monster -> monster.getName().equalsIgnoreCase(name))
 			.count();
 	}
+
+	/**
+	 * The Royal Titans are two NPCs called Branda and Eldric, so searching what the fight is called
+	 * found nothing at all.
+	 */
+	@Test
+	public void aFightCanBeFoundByItsOwnName()
+	{
+		assertTrue(repository.search("royal titans").size() >= 2);
+		assertTrue(repository.search("dks").size() >= 3);
+		assertTrue(repository.search("gauntlet").stream()
+			.anyMatch(monster -> monster.getName().toLowerCase().contains("hunllef")));
+	}
+
+	/**
+	 * Nobody looks up their best-in-slot for a level 13 zombie, and every one of those made the picker
+	 * longer for everyone else. Bosses and slayer creatures stay at any level.
+	 */
+	@Test
+	public void trashIsNotListedButSlayerCreaturesAre()
+	{
+		for (Monster monster : repository.all())
+		{
+			assertTrue(monster.getName() + " is level " + monster.getCombatLevel(),
+				monster.isBoss() || monster.isSlayerMonster() || monster.getCombatLevel() >= 50);
+		}
+
+		// The two Jobo actually asked about.
+		assertTrue(repository.search("undead druid").size() >= 1);
+		assertTrue(repository.search("zulrah").size() >= 1);
+	}
 }
