@@ -22,7 +22,7 @@ import net.runelite.client.ui.components.materialtabs.MaterialTab;
 import net.runelite.client.ui.components.materialtabs.MaterialTabGroup;
 
 /**
- * The GearForge sidebar. Two surfaces so far — Slots and BiS; Setups and Bosses join them here.
+ * The GearForge sidebar: Slots, Search, Setups and BiS.
  */
 @Singleton
 public class GearForgePanel extends PluginPanel
@@ -38,7 +38,6 @@ public class GearForgePanel extends PluginPanel
 	private final SetupsTab setupsTab;
 	private final SlotsTab slotsTab;
 	private final BisTab bisTab;
-	private final BossesTab bossesTab;
 	private final JLabel staleness = new JLabel();
 
 	/** The tab currently on screen. Only this one is ever recomputed. */
@@ -55,8 +54,7 @@ public class GearForgePanel extends PluginPanel
 		ScheduledExecutorService executor,
 		SetupsTab setupsTab,
 		SlotsTab slotsTab,
-		BisTab bisTab,
-		BossesTab bossesTab)
+		BisTab bisTab)
 	{
 		super(false);
 		this.bankModel = bankModel;
@@ -64,11 +62,9 @@ public class GearForgePanel extends PluginPanel
 		this.setupsTab = setupsTab;
 		this.slotsTab = slotsTab;
 		this.bisTab = bisTab;
-		this.bossesTab = bossesTab;
 
 		// Saving or filtering from another tab has to show up in the Setups tab straight away.
 		bisTab.setOnSetupSaved(setupsTab::rebuild);
-		bossesTab.setOnSetupSaved(setupsTab::rebuild);
 
 		setLayout(new BorderLayout());
 		setBackground(ColorScheme.DARK_GRAY_COLOR);
@@ -78,31 +74,24 @@ public class GearForgePanel extends PluginPanel
 		display.setBackground(ColorScheme.DARK_GRAY_COLOR);
 
 		MaterialTabGroup tabGroup = new MaterialTabGroup(display);
-		// Two rows of two rather than one row of four. MaterialTabGroup defaults to FlowLayout, which
-		// reports a one-row preferred size and then wraps the fourth tab onto a row with no height,
-		// making it vanish. A single row of four does fit, but MaterialTab's own padding leaves only
-		// ~30px for text and the labels ellipsize — and its padding cannot be reduced, because
-		// select()/unselect() overwrite the border to draw the selected underline. Two rows give each
-		// tab roughly double the width, which is enough for the full words.
-		tabGroup.setLayout(new GridLayout(2, 2, 2, 2));
+		// Three tabs fit on one row at this width. The old two-by-two grid existed because a fourth tab
+		// wrapped onto a row with no height and vanished; with Bosses gone that is no longer a problem.
+		tabGroup.setLayout(new GridLayout(1, 3, 2, 2));
 		tabGroup.setAlignmentX(LEFT_ALIGNMENT);
-		tabGroup.setMaximumSize(new Dimension(Integer.MAX_VALUE, 56));
+		tabGroup.setMaximumSize(new Dimension(Integer.MAX_VALUE, 28));
 
 		MaterialTab setups = new MaterialTab("Setups", tabGroup, setupsTab);
 		MaterialTab slots = new MaterialTab("Search", tabGroup, slotsTab);
 		MaterialTab bis = new MaterialTab("BiS", tabGroup, bisTab);
-		MaterialTab bosses = new MaterialTab("Bosses", tabGroup, bossesTab);
-		// Recompute only the tab being looked at, and only when it is switched to. Rebuilding all four
+		// Recompute only the tab being looked at, and only when it is switched to. Rebuilding every one
 		// on every gear change is what made the client stutter.
 		trackSelection(setups, setupsTab::rebuild);
 		trackSelection(slots, slotsTab::rebuild);
 		trackSelection(bis, bisTab::rebuild);
-		trackSelection(bosses, bossesTab::rebuild);
 
 		tabGroup.addTab(setups);
 		tabGroup.addTab(slots);
 		tabGroup.addTab(bis);
-		tabGroup.addTab(bosses);
 
 		activeRebuild = setupsTab::rebuild;
 		tabGroup.select(setups);

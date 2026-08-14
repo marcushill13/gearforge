@@ -127,6 +127,15 @@ class BisTab extends JPanel
 	 */
 	private final JPanel specContent = new JPanel();
 
+	/**
+	 * How many ranked setups a style offers. The best one is not always the one you want — it may hinge
+	 * on an item you would rather not risk — so the runners-up are worth being able to look at.
+	 */
+	private static final int SETUPS_OFFERED = 5;
+
+	/** Which of them is on screen. Reset whenever the style or target changes. */
+	private int shownSetupIndex;
+
 	/** How many spec weapons the recommendation shows before it stops being a recommendation. */
 	private static final int SPECS_SHOWN = 3;
 
@@ -229,7 +238,11 @@ class BisTab extends JPanel
 		scroll.getViewport().setBackground(ColorScheme.DARK_GRAY_COLOR);
 		add(scroll, BorderLayout.CENTER);
 
-		profilePicker.addActionListener(event -> rebuild());
+		profilePicker.addActionListener(event ->
+		{
+			shownSetupIndex = 0;
+			rebuild();
+		});
 	}
 
 	/**
@@ -474,7 +487,12 @@ class BisTab extends JPanel
 		controls.add(targetPicker);
 
 		repopulateTargets();
-		targetPicker.addActionListener(event -> rebuild());
+		targetPicker.addActionListener(event ->
+		{
+			// A new target reranks everything, so holding position three from the last boss is meaningless.
+			shownSetupIndex = 0;
+			rebuild();
+		});
 
 		return controls;
 	}
@@ -615,7 +633,7 @@ class BisTab extends JPanel
 
 			CombatContext context = contextFor(profile, levels, target, prayers, potions);
 			List<ScoredSetup> best =
-				dpsOptimizer.best(reaching(pooled, profile.getStyle(), target), context, slayerTask, 3);
+				dpsOptimizer.best(reaching(pooled, profile.getStyle(), target), context, slayerTask, SETUPS_OFFERED);
 			List<SpecSuggestion> specs = specsFor(best, everySpecWeapon, context, target);
 			SwingUtilities.invokeLater(() -> renderOffensive(best, specs, profile, pool, target));
 		}
@@ -1067,10 +1085,30 @@ class BisTab extends JPanel
 			return;
 		}
 
-		ScoredSetup top = best.get(0);
+		int index = Math.min(shownSetupIndex, best.size() - 1);
+		ScoredSetup top = best.get(index);
 		remember(top.getSetup(), profile.toString());
 
 		results.add(backToAllStyles());
+
+		// Ranked alternatives, switchable in place. The strongest setup often hinges on one expensive
+		// or risky item, and seeing what second place costs you is the whole question.
+		if (best.size() > 1)
+		{
+			String[] labels = new String[best.size()];
+			for (int i = 0; i < best.size(); i++)
+			{
+				labels[i] = String.valueOf(i + 1);
+			}
+
+			results.add(Cards.sectionLabel("Ranked setups"));
+			results.add(Cards.segmented(labels, index, chosen ->
+			{
+				shownSetupIndex = chosen;
+				rebuild();
+			}));
+			results.add(Cards.gap(6));
+		}
 
 		results.add(summaryCard(
 			String.format("%.2f DPS", top.getScore().getDps()),
@@ -1097,15 +1135,21 @@ class BisTab extends JPanel
 		if (best.size() > 1)
 		{
 			List<String> alternatives = new ArrayList<>();
-			for (int i = 1; i < best.size(); i++)
+			for (int i = 0; i < best.size(); i++)
 			{
+				if (i == index)
+				{
+					continue;
+				}
+
 				ScoredSetup alternative = best.get(i);
 				double delta = alternative.getScore().getDps() - top.getScore().getDps();
-				alternatives.add(String.format("%.2f DPS (%.2f) — %s",
-					alternative.getScore().getDps(), delta, describeDifference(top, alternative)));
+				alternatives.add(String.format("%d. %.2f DPS (%.2f) — %s",
+					i + 1, alternative.getScore().getDps(), delta,
+					describeDifference(top, alternative)));
 			}
 
-			addSection("Close alternatives", alternatives);
+			addSection("The others", alternatives);
 		}
 
 		finish();
@@ -1348,6 +1392,11 @@ class BisTab extends JPanel
 
 	private void finish()
 	{
+		// The monster data is CC BY-NC-SA, which requires attribution wherever it is used. This used to
+		// live only on the Bosses tab; with that tab gone it has to be here, or the licence is breached.
+		results.add(Cards.gap(10));
+		results.add(Cards.muted(monsters.getAttribution()));
+
 		results.revalidate();
 		results.repaint();
 	}

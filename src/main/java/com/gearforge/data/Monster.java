@@ -42,7 +42,7 @@ public class Monster
 	private String weaknessElement;
 	private int weaknessSeverity;
 
-	/** Whether this is one of the curated bosses the Bosses tab lists. */
+	/** Whether this is a curated boss. Bosses keep their forms when the list is collapsed. */
 	private boolean boss;
 
 	/**

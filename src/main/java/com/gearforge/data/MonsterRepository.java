@@ -26,7 +26,7 @@ import lombok.extern.slf4j.Slf4j;
  * <p>
  * Ships as a generated resource — see {@code scripts/generate-monsters.mjs}. Sourced from the OSRS
  * Wiki, which is CC BY-NC-SA: attribution is required and the licence is non-commercial, so the
- * credit line must stay in the Bosses tab and the README, and the plugin must remain free.
+ * credit line must stay on the BiS tab and in the README, and the plugin must remain free.
  */
 @Slf4j
 @Singleton
@@ -231,7 +231,7 @@ public class MonsterRepository
 		{
 			if (stream == null)
 			{
-				log.warn("Monster data resource missing; the Bosses tab will be empty");
+				log.warn("Monster data resource missing; no targets will be selectable");
 				return new MonsterFile();
 			}
 
@@ -248,7 +248,7 @@ public class MonsterRepository
 		}
 		catch (IOException | JsonSyntaxException e)
 		{
-			log.warn("Could not read monster data; the Bosses tab will be empty", e);
+			log.warn("Could not read monster data; no targets will be selectable", e);
 			return new MonsterFile();
 		}
 	}
