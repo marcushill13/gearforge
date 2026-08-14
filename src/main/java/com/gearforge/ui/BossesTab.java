@@ -17,6 +17,7 @@ import com.gearforge.dps.CombatContext;
 import com.gearforge.dps.CombatPrayer;
 import com.gearforge.dps.CombatStyle;
 import com.gearforge.dps.Potion;
+import com.gearforge.dps.Scoring;
 import com.gearforge.dps.Target;
 import com.gearforge.optimizer.DpsOptimizer;
 import com.gearforge.optimizer.ScoredSetup;
@@ -27,6 +28,7 @@ import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -90,6 +92,7 @@ class BossesTab extends JPanel
 	private final PlayerModel playerModel;
 	private final ItemRequirements itemRequirements;
 	private final ItemCategories itemCategories;
+	private final Scoring scoring;
 	private final DpsOptimizer dpsOptimizer;
 	private final MonsterRepository monsters;
 	private final SetupStore setupStore;
@@ -116,6 +119,7 @@ class BossesTab extends JPanel
 		PlayerModel playerModel,
 		ItemRequirements itemRequirements,
 		ItemCategories itemCategories,
+		Scoring scoring,
 		DpsOptimizer dpsOptimizer,
 		MonsterRepository monsters,
 		SetupStore setupStore,
@@ -129,6 +133,7 @@ class BossesTab extends JPanel
 		this.playerModel = playerModel;
 		this.itemRequirements = itemRequirements;
 		this.itemCategories = itemCategories;
+		this.scoring = scoring;
 		this.dpsOptimizer = dpsOptimizer;
 		this.monsters = monsters;
 		this.setupStore = setupStore;
@@ -363,29 +368,20 @@ class BossesTab extends JPanel
 		return usable;
 	}
 
+	/**
+	 * Delegates to the shared builder, which is what the BiS tab uses. Assembling this by hand is how
+	 * the two tabs drifted apart.
+	 */
 	private CombatContext contextFor(
 		CombatStyle style, PlayerLevels levels, Target target, Monster monster)
 	{
-		// Bosses are fought with prayers and potions up, so score that way. Leaving them out can flip
-		// which item wins, because they do not scale every item evenly.
-		return CombatContext.builder()
-			.attackLevel(levels.getAttack())
-			.strengthLevel(levels.getStrength())
-			.rangedLevel(levels.getRanged())
-			.magicLevel(levels.getMagic())
-			.attackBoost(BOSS_POTION.attackBoost(levels))
-			.strengthBoost(BOSS_POTION.strengthBoost(levels))
-			.rangedBoost(BOSS_POTION.rangedBoost(levels))
-			.magicBoost(BOSS_POTION.magicBoost(levels))
-			.prayer(CombatPrayer.bestFor(style))
-			.style(style)
-			.equipment(EquipmentStats.builder().build())
-			.target(target)
-			.poweredStaff(false)
-			.baseSpellDamage(style.isMagic() ? ASSUMED_SPELL_DAMAGE : 0)
-			.weaponSpeedTicks(SPELL_SPEED_TICKS)
-			.build();
+		// Bosses are fought with prayers and potions up, so score that way.
+		return scoring.contextFor(
+			style, levels, monster,
+			EnumSet.of(CombatPrayer.bestFor(style)),
+			EnumSet.of(BOSS_POTION));
 	}
+
 
 	private void renderResult(
 		Monster monster, List<ScoredSetup> byStyle, List<CombatStyle> styleOf, boolean onTask)

@@ -19,6 +19,7 @@ import com.gearforge.dps.CombatContext;
 import com.gearforge.dps.CombatPrayer;
 import com.gearforge.dps.CombatStyle;
 import com.gearforge.dps.Potion;
+import com.gearforge.dps.Scoring;
 import com.gearforge.dps.Spell;
 import com.gearforge.dps.SpecialAttack;
 import com.gearforge.dps.PrayerIcon;
@@ -44,6 +45,7 @@ import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
@@ -97,6 +99,7 @@ class BisTab extends JPanel
 	private final SpriteManager spriteManager;
 	private final SpecFinder specFinder;
 	private final ItemCategories itemCategories;
+	private final Scoring scoring;
 
 	/** Matches the wiki calculator's habit of scoring against a low-defence crab by default. */
 	private static final String DEFAULT_TARGET = "Ammonite Crab";
@@ -150,9 +153,12 @@ class BisTab extends JPanel
 	 */
 	private SlayerChoice slayerChoice = SlayerChoice.AUTO;
 
-	/** Selected prayer and potion. Neither is on by default; both are chosen explicitly. */
-	private CombatPrayer prayer = CombatPrayer.NONE;
-	private Potion potion = Potion.NONE;
+	/**
+	 * Selected prayers and boosts. Several may be chosen at once — two that raise the same stat do not
+	 * stack in game, so the engine takes the strongest of each rather than adding them.
+	 */
+	private final Set<CombatPrayer> prayers = EnumSet.noneOf(CombatPrayer.class);
+	private final Set<Potion> potions = EnumSet.noneOf(Potion.class);
 
 	/**
 	 * Plain buttons rather than toggles: RuneLite's sprite and item image helpers only accept
@@ -184,7 +190,8 @@ class BisTab extends JPanel
 		ItemManager itemManager,
 		SpriteManager spriteManager,
 		SpecFinder specFinder,
-		ItemCategories itemCategories)
+		ItemCategories itemCategories,
+		Scoring scoring)
 	{
 		this.clientThread = clientThread;
 		this.executor = executor;
@@ -201,6 +208,7 @@ class BisTab extends JPanel
 		this.spriteManager = spriteManager;
 		this.specFinder = specFinder;
 		this.itemCategories = itemCategories;
+		this.scoring = scoring;
 
 		setLayout(new BorderLayout());
 		setBackground(ColorScheme.DARK_GRAY_COLOR);
@@ -257,7 +265,10 @@ class BisTab extends JPanel
 
 			button.addActionListener(event ->
 			{
-				prayer = prayer == candidate ? CombatPrayer.NONE : candidate;
+				if (!prayers.remove(candidate))
+				{
+					prayers.add(candidate);
+				}
 				paintPrayerButtons();
 				rebuild();
 			});
@@ -274,7 +285,7 @@ class BisTab extends JPanel
 	{
 		prayerButtons.forEach((candidate, button) ->
 		{
-			boolean on = candidate == prayer;
+			boolean on = prayers.contains(candidate);
 			button.setBackground(on ? ColorScheme.BRAND_ORANGE : ColorScheme.DARKER_GRAY_COLOR);
 		});
 	}
@@ -308,7 +319,10 @@ class BisTab extends JPanel
 
 			button.addActionListener(event ->
 			{
-				potion = potion == candidate ? Potion.NONE : candidate;
+				if (!potions.remove(candidate))
+				{
+					potions.add(candidate);
+				}
 				paintPotionButtons();
 				rebuild();
 			});
@@ -343,7 +357,7 @@ class BisTab extends JPanel
 	{
 		potionButtons.forEach((candidate, button) ->
 		{
-			boolean on = candidate == potion;
+			boolean on = potions.contains(candidate);
 			button.setBackground(on ? ColorScheme.BRAND_ORANGE : ColorScheme.DARKER_GRAY_COLOR);
 			button.setForeground(on ? ColorScheme.DARKER_GRAY_COLOR : ColorScheme.LIGHT_GRAY_COLOR);
 		});
@@ -523,8 +537,10 @@ class BisTab extends JPanel
 
 		// Read on the EDT and carried through, because the search runs on another thread and must not
 		// touch Swing state.
-		CombatPrayer chosenPrayer = this.prayer;
-		Potion chosenPotion = this.potion;
+		Set<CombatPrayer> chosenPrayers = EnumSet.copyOf(prayers.isEmpty()
+			? EnumSet.noneOf(CombatPrayer.class) : prayers);
+		Set<Potion> chosenPotions = EnumSet.copyOf(potions.isEmpty()
+			? EnumSet.noneOf(Potion.class) : potions);
 
 		clientThread.invoke(() ->
 		{
@@ -545,7 +561,7 @@ class BisTab extends JPanel
 			// thread — running a beam search there froze the client on every gear swap.
 			executor.execute(() ->
 				optimise(owned, everySpecWeapon, levels, profile, pool, slayer, target,
-					chosenPrayer, chosenPotion));
+					chosenPrayers, chosenPotions));
 		});
 	}
 
@@ -560,8 +576,8 @@ class BisTab extends JPanel
 		GearPool pool,
 		SlayerChoice slayer,
 		@Nullable Monster target,
-		CombatPrayer prayer,
-		Potion potion)
+		Set<CombatPrayer> prayers,
+		Set<Potion> potions)
 	{
 		boolean slayerTask = slayer.resolve(levels.isOnSlayerTask());
 		List<GearItem> pooled = pool == GearPool.USABLE ? onlyEquippable(owned, levels) : owned;
@@ -579,7 +595,7 @@ class BisTab extends JPanel
 
 				List<ScoredSetup> best = dpsOptimizer.best(
 					reaching(pooled, style, target),
-					contextFor(Profile.forStyle(style), levels, target, prayer, potion), slayerTask, 1);
+					contextFor(Profile.forStyle(style), levels, target, prayers, potions), slayerTask, 1);
 
 				if (!best.isEmpty())
 				{
@@ -597,7 +613,7 @@ class BisTab extends JPanel
 				return;
 			}
 
-			CombatContext context = contextFor(profile, levels, target, prayer, potion);
+			CombatContext context = contextFor(profile, levels, target, prayers, potions);
 			List<ScoredSetup> best =
 				dpsOptimizer.best(reaching(pooled, profile.getStyle(), target), context, slayerTask, 3);
 			List<SpecSuggestion> specs = specsFor(best, everySpecWeapon, context, target);
@@ -627,45 +643,20 @@ class BisTab extends JPanel
 	/**
 	 * Must run on the client thread — player levels come from the client.
 	 */
+	/**
+	 * Delegates to the shared builder. This method used to assemble the context by hand, as did the
+	 * Bosses and Setups tabs, and the three drifted apart — a fix landing in one of them was not a fix.
+	 */
 	private CombatContext contextFor(
 		Profile profile,
 		PlayerLevels levels,
 		@Nullable Monster target,
-		CombatPrayer prayer,
-		Potion potion)
+		Set<CombatPrayer> prayers,
+		Set<Potion> potions)
 	{
-		CombatStyle style = profile.getStyle();
-
-		// Prayers and potions do not scale every item evenly, so leaving them out can flip which item
-		// wins. That was the first thing players reported after release.
-		return CombatContext.builder()
-			.attackLevel(levels.getAttack())
-			.strengthLevel(levels.getStrength())
-			.rangedLevel(levels.getRanged())
-			.magicLevel(levels.getMagic())
-			.attackBoost(potion.attackBoost(levels))
-			.strengthBoost(potion.strengthBoost(levels))
-			.rangedBoost(potion.rangedBoost(levels))
-			.magicBoost(potion.magicBoost(levels))
-			.prayer(prayer)
-			.style(style)
-			.equipment(EquipmentStats.builder().build())
-			.target(target == null ? Target.dummy() : target.toTarget())
-			.targetHitpoints(target == null ? 0 : target.getHitpoints())
-			.poweredStaff(false)
-			// The best spell for this target rather than a fixed assumption. Over a thousand monsters
-			// have an elemental weakness worth half again in accuracy and damage, and against those the
-			// strongest spell is not the right one.
-			.spell(style.isMagic()
-				? Spell.bestFor(
-					target == null ? Target.dummy() : target.toTarget(),
-					levels.getMagic(),
-					true)
-				: null)
-			.baseSpellDamage(style.isMagic() ? ASSUMED_SPELL_DAMAGE : 0)
-			.weaponSpeedTicks(SPELL_SPEED_TICKS)
-			.build();
+		return scoring.contextFor(profile.getStyle(), levels, target, prayers, potions);
 	}
+
 
 	/**
 	 * The overview: one row per attack style, best first, each opening the full setup.

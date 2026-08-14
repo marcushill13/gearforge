@@ -12,6 +12,7 @@ import com.gearforge.data.PlayerModel;
 import com.gearforge.data.Storage;
 import com.gearforge.dps.CombatContext;
 import com.gearforge.dps.CombatStyle;
+import com.gearforge.dps.Scoring;
 import com.gearforge.optimizer.UpgradeFinder;
 import com.gearforge.optimizer.UpgradeSuggestion;
 import com.gearforge.setups.InventorySetupsImporter;
@@ -73,6 +74,7 @@ class SetupsTab extends JPanel
 	private final BankFilterService bankFilterService;
 	private final PlayerModel playerModel;
 	private final UpgradeFinder upgradeFinder;
+	private final Scoring scoring;
 	private final InventorySetupsImporter importer;
 	private final ItemManager itemManager;
 
@@ -95,6 +97,7 @@ class SetupsTab extends JPanel
 		BankFilterService bankFilterService,
 		PlayerModel playerModel,
 		UpgradeFinder upgradeFinder,
+		Scoring scoring,
 		InventorySetupsImporter importer,
 		ItemManager itemManager)
 	{
@@ -107,6 +110,7 @@ class SetupsTab extends JPanel
 		this.bankFilterService = bankFilterService;
 		this.playerModel = playerModel;
 		this.upgradeFinder = upgradeFinder;
+		this.scoring = scoring;
 		this.importer = importer;
 		this.itemManager = itemManager;
 
@@ -350,18 +354,11 @@ class SetupsTab extends JPanel
 			view.names.put(item.getItemId(), item.getName());
 		}
 
-		CombatContext template = CombatContext.builder()
-			.attackLevel(levels.getAttack())
-			.strengthLevel(levels.getStrength())
-			.rangedLevel(levels.getRanged())
-			.magicLevel(levels.getMagic())
-			.style(CombatStyle.SLASH)
-			.equipment(EquipmentStats.builder().build())
-			.weaponSpeedTicks(4)
-			// Without a spell, a magic setup's max hit is zero, so it would score no DPS and silently
-			// never receive an upgrade suggestion. Ice Barrage, as on the BiS tab.
-			.baseSpellDamage(30)
-			.build();
+		// The shared builder, so an upgrade suggestion is measured the same way the BiS tab measures a
+		// setup. This was assembled by hand here — slash, Ice Barrage, no target — so every fix to the
+		// model since has been missing from the upgrade nudges entirely.
+		CombatContext template = scoring.contextFor(
+			CombatStyle.SLASH, levels, null, Scoring.noPrayers(), Scoring.noPotions());
 
 		for (Setup setup : setupStore.all())
 		{
