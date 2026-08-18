@@ -180,6 +180,52 @@ public enum Spell
 	}
 
 	/**
+	 * Whether the twinflame staff doubles up on this spell: the standard book's bolt, blast and wave
+	 * spells only, never a strike, a surge, or anything ancient.
+	 */
+	public boolean firesTwice()
+	{
+		if (element == null)
+		{
+			return false;
+		}
+
+		String name = displayName.toLowerCase();
+		return name.contains("bolt") || name.contains("blast") || name.contains("wave");
+	}
+
+	/**
+	 * The best spell to cast holding a twinflame staff.
+	 * <p>
+	 * The staff fires a second hit for two fifths on bolt, blast and wave spells — so a Fire Wave with
+	 * the staff can beat a Fire Surge without it, and the plain "strongest spell" answer is wrong while
+	 * it is held. Choosing the spell without knowing the weapon meant the staff's effect could never
+	 * apply to the spell that got chosen, and so never applied at all.
+	 */
+	public static Spell bestForTwinflame(Target target, int magicLevel, boolean ancients)
+	{
+		Spell best = bestFor(target, magicLevel, ancients);
+		double bestDamage = best == null ? 0 : best.maxHitAgainst(target);
+
+		for (Spell spell : values())
+		{
+			if (spell.magicLevel > magicLevel || !spell.firesTwice())
+			{
+				continue;
+			}
+
+			double doubled = spell.maxHitAgainst(target) * 1.4;
+			if (doubled > bestDamage)
+			{
+				bestDamage = doubled;
+				best = spell;
+			}
+		}
+
+		return best;
+	}
+
+	/**
 	 * Every spell castable at this level, best first, for showing the alternatives.
 	 */
 	public static List<Spell> castableAt(int magicLevel, boolean ancients)

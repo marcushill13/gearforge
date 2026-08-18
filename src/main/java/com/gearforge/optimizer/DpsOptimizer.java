@@ -12,6 +12,7 @@ import com.gearforge.dps.PoweredStaff;
 import com.gearforge.dps.SetEffectRegistry;
 import com.gearforge.dps.SetEffects;
 import com.gearforge.dps.SetupScore;
+import com.gearforge.dps.Spell;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -73,6 +74,9 @@ public class DpsOptimizer
 	 */
 	private static final Set<Integer> BLOWPIPES = new HashSet<>(Arrays.asList(
 		12926, 12924, 28688, 28687, 30374, 30373, 31575, 31577, 31579, 31581, 31583, 31585));
+
+	/** Fires a second hit on bolt, blast and wave spells, which changes which spell is worth casting. */
+	private static final int TWINFLAME_STAFF = 30634;
 
 	/** Thrown with the arm rather than drawn, so it reads Strength instead of Ranged. */
 	private static final int ECLIPSE_ATLATL = 29000;
@@ -313,14 +317,32 @@ public class DpsOptimizer
 			pieces.add(EquipmentStats.builder().rangedStrength(dartStrength).build());
 		}
 
+		// The spell is chosen before the weapon is known, so a twinflame staff never got a spell it could
+		// double. Now that the weapon is in hand, reconsider: a Fire Wave fired twice beats a Fire Surge
+		// fired once.
+		CombatContext scored = template;
+		if (template.getStyle().isMagic() && weapon.getItemId() == TWINFLAME_STAFF)
+		{
+			scored = template.toBuilder()
+				.spell(Spell.bestForTwinflame(template.getTarget(), template.getMagicLevel(), true))
+				.build();
+		}
+
+		// This call dropped the spell entirely, so the elemental tomes and the twinflame staff could
+		// never fire however the spell was chosen — the effects were modelled and then never reached.
 		SetEffects effects = setEffects.evaluate(
-			setup.values(), template.getStyle(), template.getTarget(), onSlayerTask);
+			setup.values(), scored.getStyle(), scored.getTarget(), onSlayerTask, scored.getSpell());
 
-		// A spellbook cast keeps its own 5-tick speed regardless of what is held.
-		boolean spellbookCast = template.getStyle().isMagic() && !template.isPoweredStaff();
-		int speed = spellbookCast ? template.getWeaponSpeedTicks() : weapon.getStats().getSpeed();
+		PoweredStaff staff = scored.getStyle().isMagic()
+			? PoweredStaff.forItem(weapon.getItemId())
+			: null;
 
-		CombatContext context = template.toBuilder()
+		// A spellbook cast keeps its own 5-tick speed regardless of what is held. A powered staff does
+		// not cast — it attacks at its own speed, and takes the attack style's magic bonus.
+		boolean spellbookCast = scored.getStyle().isMagic() && staff == null;
+		int speed = spellbookCast ? scored.getWeaponSpeedTicks() : weapon.getStats().getSpeed();
+
+		CombatContext context = scored.toBuilder()
 			.equipment(EquipmentStats.sum(pieces))
 			.weaponSpeedTicks(speed)
 			.voidSet(effects.getVoidSet())
@@ -328,6 +350,8 @@ public class DpsOptimizer
 			.damageMultiplier(effects.getDamageMultiplier())
 			.flatMaxHit(effects.getFlatMaxHit())
 			.brimstoneRing(effects.isBrimstoneRing())
+			.poweredStaffType(staff)
+			.poweredStaff(staff != null)
 			// Confliction gauntlets reroll a magic miss, but only with a one-handed weapon.
 			.rerollsMisses(effects.isRerollsMisses()
 				|| (template.getStyle().isMagic()
