@@ -143,6 +143,12 @@ class BisTab extends JPanel
 	/** Below this a special adds nothing worth swapping weapons for. */
 	private static final double SPEC_WORTH_USING = 1.0;
 
+	/**
+	 * Width kept for the damage figure. Wide enough for a three-figure spec on a boss, measured in the
+	 * panel's own bold font rather than guessed at.
+	 */
+	private static final int SPEC_VALUE_WIDTH = 44;
+
 	/** Narrows the picker below it. Fifty-five weapons is far too many to scroll through. */
 	private final JTextField specSearch = new JTextField();
 
@@ -867,31 +873,81 @@ class BisTab extends JPanel
 	 * Must run on the client thread. Scoring the ones you do not have is the point of the search: the
 	 * question "would claws actually beat my voidwaker here" is worth answering before spending the
 	 * money, not after.
+	 * <p>
+	 * Ownership is matched across the whole variant family, not on the one canonical id. Nobody's bank
+	 * holds a plain dragon dagger — it holds a dagger(p++) — and matching on the canonical id alone
+	 * told those players they owned no special attack weapon at all, which is exactly what the empty
+	 * recommendation was reporting.
 	 */
 	private List<GearItem> allSpecWeapons()
 	{
 		List<GearItem> weapons = new ArrayList<>();
-		Map<Integer, BankModel.OwnedQuantity> owned = bankModel.ownedItems();
+		Map<SpecialAttack, Integer> ownedVariants = ownedSpecVariants();
 
 		for (SpecialAttack special : SpecialAttack.values())
 		{
-			EquipmentStats stats = statEngine.statsFor(special.getItemId());
+			Integer ownedId = ownedVariants.get(special);
+			// The variant actually in the bank is the one to score: a charged blowpipe and an empty one
+			// are the same family and nothing like the same weapon.
+			int itemId = ownedId == null ? special.getItemId() : ownedId;
+
+			EquipmentStats stats = statEngine.statsFor(itemId);
 			if (stats == null)
 			{
 				continue;
 			}
 
 			weapons.add(new GearItem(
-				special.getItemId(),
+				itemId,
 				special.getDisplayName(),
 				1,
 				stats,
-				owned.containsKey(special.getItemId())
-					? EnumSet.of(Storage.BANK)
-					: EnumSet.noneOf(Storage.class)));
+				ownedId == null ? EnumSet.noneOf(Storage.class) : EnumSet.of(Storage.BANK)));
 		}
 
 		return weapons;
+	}
+
+	/**
+	 * Which special attack weapon each bank item is, keeping the strongest variant where several are
+	 * held — an inactive crystal halberd sits in the same family as a perfected one.
+	 */
+	private Map<SpecialAttack, Integer> ownedSpecVariants()
+	{
+		Map<SpecialAttack, Integer> owned = new EnumMap<>(SpecialAttack.class);
+
+		for (Integer itemId : bankModel.ownedItems().keySet())
+		{
+			SpecialAttack special = SpecialAttack.forItem(itemId);
+			if (special == null)
+			{
+				continue;
+			}
+
+			Integer held = owned.get(special);
+			if (held == null || offenceOf(itemId) > offenceOf(held))
+			{
+				owned.put(special, itemId);
+			}
+		}
+
+		return owned;
+	}
+
+	/**
+	 * A rough ranking of two variants of the same weapon, only ever used to choose between them.
+	 */
+	private int offenceOf(int itemId)
+	{
+		EquipmentStats stats = statEngine.statsFor(itemId);
+		if (stats == null)
+		{
+			return -1;
+		}
+
+		return Math.max(Math.max(stats.getAstab(), stats.getAslash()),
+			Math.max(stats.getAcrush(), Math.max(stats.getArange(), stats.getAmagic())))
+			+ stats.getStrength() + stats.getRangedStrength();
 	}
 
 	/**
@@ -1048,13 +1104,17 @@ class BisTab extends JPanel
 
 		if (specs.isEmpty())
 		{
-			// One line rather than a column of weapons marked as useless. Naming the closest one is
-			// what makes it an answer instead of a shrug.
+			// One line rather than a column of weapons marked as useless, and the reason has to come
+			// from the numbers: the old wording blamed accuracy every time, and told people they rarely
+			// miss a boss they were missing half their swings on.
 			list.add(Cards.muted(bestOwned == null
 				? "You have no special attack weapon GearForge can score."
-				: "Nothing you own is worth speccing with here — the closest is "
-					+ bestOwned.getSpecial().getDisplayName() + ", and it adds nothing against a target "
-					+ "you already rarely miss."));
+				: String.format(
+					"Nothing you own is worth speccing with here. The best is %s: it hits %.1f on "
+						+ "average, which is %s an ordinary attack with the setup above.",
+					bestOwned.getSpecial().getDisplayName(),
+					bestOwned.getSpecDamage(),
+					bestOwned.getDamageAdded() < 0 ? "less than" : "no better than")));
 			return list;
 		}
 
@@ -1097,7 +1157,10 @@ class BisTab extends JPanel
 		name.setAlignmentX(Component.LEFT_ALIGNMENT);
 		text.add(name);
 
-		text.add(Cards.body(suggestion.getSpecial().describe()));
+		text.add(Cards.bodyInRow(suggestion.getSpecial().describe()));
+		// What it actually hits for. Without it the row showed a single net figure, so a spec that hits
+		// hard but only a little harder than the weapon it replaces read as if nothing were computed.
+		text.add(Cards.mutedInRow(String.format("average hit %.1f", suggestion.getSpecDamage())));
 
 		if (suggestion.getNote() != null)
 		{
@@ -1112,20 +1175,37 @@ class BisTab extends JPanel
 		row.add(text, BorderLayout.CENTER);
 
 		// A spec that is not worth using here is still shown, just not dressed up as a recommendation.
-		boolean worthwhile = suggestion.getDamageAdded() >= 1;
-		JLabel added = new JLabel(worthwhile
-			? String.format("+%.0f", suggestion.getDamageAdded())
-			: "—");
+		boolean worthwhile = suggestion.getDamageAdded() >= SPEC_WORTH_USING;
+		// A decimal, because rounding turned a real +1.4 into a bare "+1" that people read as a number
+		// with its end cut off. The tooltip carries the unit the column has no room for.
+		JLabel added = new JLabel(specValue(suggestion.getDamageAdded()));
 		added.setFont(FontManager.getRunescapeBoldFont());
 		added.setForeground(worthwhile ? ColorScheme.BRAND_ORANGE : Cards.mutedColor());
 		added.setHorizontalAlignment(SwingConstants.RIGHT);
+		added.setToolTipText("Damage this spec adds to the kill over an ordinary attack");
 		// Reserved outright, so it cannot be negotiated away by a long weapon name.
-		added.setPreferredSize(new Dimension(34, added.getPreferredSize().height));
-		added.setMinimumSize(new Dimension(34, added.getPreferredSize().height));
+		added.setPreferredSize(new Dimension(SPEC_VALUE_WIDTH, added.getPreferredSize().height));
+		added.setMinimumSize(new Dimension(SPEC_VALUE_WIDTH, added.getPreferredSize().height));
 		row.add(added, BorderLayout.EAST);
 
 		row.setMaximumSize(new Dimension(Integer.MAX_VALUE, row.getPreferredSize().height));
 		return row;
+	}
+
+	/**
+	 * The damage figure as it is shown: a decimal until three figures, where the decimal would no
+	 * longer fit the column it is given.
+	 */
+	private static String specValue(double damageAdded)
+	{
+		if (damageAdded < 0.05)
+		{
+			return "—";
+		}
+
+		return damageAdded >= 100
+			? String.format("+%.0f", damageAdded)
+			: String.format("+%.1f", damageAdded);
 	}
 
 	/**

@@ -46,6 +46,12 @@ final class Cards
 	 */
 	static final int SCROLLBAR_ALLOWANCE = 12;
 
+	/**
+	 * How wide text may be inside a row that also carries an icon and a value. The panel is 225 wide
+	 * before the scrollbar, and everything else in such a row is fixed, so this is what is left.
+	 */
+	static final int IN_ROW_TEXT_WIDTH = 92;
+
 	private Cards()
 	{
 	}
@@ -159,13 +165,28 @@ final class Cards
 	 * Muted, wrapped text for reasons and caveats.
 	 */
 	/**
+	 * Body text sized to sit inside a row that already has an icon on one side and a value on the
+	 * other.
+	 */
+	static JLabel bodyInRow(String text)
+	{
+		JLabel label = new JLabel("<html><body style='width:" + IN_ROW_TEXT_WIDTH + "px'>"
+			+ escape(text) + "</body></html>");
+		label.setFont(FontManager.getRunescapeSmallFont());
+		label.setForeground(ColorScheme.LIGHT_GRAY_COLOR);
+		label.setAlignmentX(Component.LEFT_ALIGNMENT);
+		return label;
+	}
+
+	/**
 	 * Muted text sized to sit inside a row that already has an icon on one side and a value on the
 	 * other. The full-width version forces the row wider than the panel, which pushes the value off the
 	 * edge entirely.
 	 */
 	static JLabel mutedInRow(String text)
 	{
-		JLabel label = new JLabel("<html><body style='width:100px'>" + escape(text) + "</body></html>");
+		JLabel label = new JLabel("<html><body style='width:" + IN_ROW_TEXT_WIDTH + "px'>"
+			+ escape(text) + "</body></html>");
 		label.setFont(FontManager.getRunescapeSmallFont());
 		label.setForeground(MUTED_TEXT);
 		label.setAlignmentX(Component.LEFT_ALIGNMENT);
