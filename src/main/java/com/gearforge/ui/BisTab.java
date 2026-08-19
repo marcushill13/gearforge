@@ -14,6 +14,7 @@ import com.gearforge.data.MonsterRepository;
 import com.gearforge.data.PlayerLevels;
 import com.gearforge.data.PlayerModel;
 import com.gearforge.data.Reachability;
+import com.gearforge.data.SlayerGear;
 import com.gearforge.data.Storage;
 import com.gearforge.dps.CombatContext;
 import com.gearforge.dps.CombatPrayer;
@@ -612,7 +613,7 @@ class BisTab extends JPanel
 				}
 
 				List<ScoredSetup> best = dpsOptimizer.best(
-					reaching(pooled, style, target),
+					wearingRequiredGear(reaching(pooled, style, target), target),
 					contextFor(Profile.forStyle(style), levels, target, prayers, potions), slayerTask, 1);
 
 				if (!best.isEmpty())
@@ -633,7 +634,7 @@ class BisTab extends JPanel
 
 			CombatContext context = contextFor(profile, levels, target, prayers, potions);
 			List<ScoredSetup> best =
-				dpsOptimizer.best(reaching(pooled, profile.getStyle(), target), context, slayerTask, SETUPS_OFFERED);
+				dpsOptimizer.best(wearingRequiredGear(reaching(pooled, profile.getStyle(), target), target), context, slayerTask, SETUPS_OFFERED);
 			List<SpecSuggestion> specs = specsFor(best, everySpecWeapon, context, target);
 			SwingUtilities.invokeLater(() -> renderOffensive(best, specs, profile, pool, target));
 		}
@@ -763,6 +764,82 @@ class BisTab extends JPanel
 	 * rather than banning melee outright keeps the halberd answer — which is the one people actually
 	 * use, and which an earlier blanket rule of mine deleted.
 	 */
+	/**
+	 * Says what a slayer monster obliges you to bring, whether it is worn or carried.
+	 * <p>
+	 * A carried item takes no slot, so the setup cannot show it and the reasoning is the only place it
+	 * can appear — an ice cooler is the difference between killing a desert lizard and not.
+	 */
+	private void addSlayerRequirement(
+		@Nullable Monster target, Map<EquipmentSlot, GearItem> setup, List<String> reasons)
+	{
+		SlayerGear.Requirement requirement = SlayerGear.forMonster(target);
+		if (requirement == null)
+		{
+			return;
+		}
+
+		reasons.add(requirement.getNote());
+
+		if (!requirement.isWorn())
+		{
+			return;
+		}
+
+		// Only claim the slot is handled when it actually is: without the item the search was left
+		// alone, and saying nothing would let someone walk out with an unusable setup.
+		GearItem worn = setup.get(requirement.getSlot());
+		if (worn == null || !requirement.getAccepted().contains(worn.getItemId()))
+		{
+			reasons.add("You do not own one, so this setup cannot be used here as it stands.");
+		}
+	}
+
+	/**
+	 * Restricts a slot to the gear a slayer monster obliges you to wear.
+	 * <p>
+	 * An aberrant spectre cannot be fought without a nose peg, so a setup with anything else in that
+	 * slot is not a worse answer — it is one the game will not let you equip. If none of the accepted
+	 * items is owned the pool is left alone, and the reasoning says what is missing rather than
+	 * returning nothing.
+	 */
+	private List<GearItem> wearingRequiredGear(List<GearItem> pool, @Nullable Monster target)
+	{
+		SlayerGear.Requirement requirement = SlayerGear.forMonster(target);
+		if (requirement == null || !requirement.isWorn())
+		{
+			return pool;
+		}
+
+		boolean ownsOne = false;
+		for (GearItem item : pool)
+		{
+			if (requirement.getAccepted().contains(item.getItemId()))
+			{
+				ownsOne = true;
+				break;
+			}
+		}
+
+		if (!ownsOne)
+		{
+			return pool;
+		}
+
+		int slotIndex = requirement.getSlot().getSlotIndex();
+		List<GearItem> allowed = new ArrayList<>();
+		for (GearItem item : pool)
+		{
+			if (item.getStats().getSlot() != slotIndex
+				|| requirement.getAccepted().contains(item.getItemId()))
+			{
+				allowed.add(item);
+			}
+		}
+
+		return allowed;
+	}
+
 	private List<GearItem> reaching(List<GearItem> pool, CombatStyle style, @Nullable Monster target)
 	{
 		if (!style.isMelee() || !Reachability.requiresReach(target))
@@ -1120,6 +1197,7 @@ class BisTab extends JPanel
 		reasons.add(profile.getStyle().isMagic()
 			? "Assumes Ice Barrage, scored against " + against + "."
 			: "Scored against " + against + ".");
+		addSlayerRequirement(target, top.getSetup(), reasons);
 		addUncheckedWarning(top.getSetup(), pool, reasons);
 		addSection("Why", reasons);
 
@@ -1256,20 +1334,32 @@ class BisTab extends JPanel
 
 		results.add(Cards.gap(8));
 
+		// Both sit in a strip that reserves the scrollbar's width, so they line up with the setup rows
+		// above rather than running under the scrollbar and reading as off-centre.
+		JPanel actions = new JPanel();
+		actions.setLayout(new BoxLayout(actions, BoxLayout.Y_AXIS));
+		actions.setBackground(ColorScheme.DARK_GRAY_COLOR);
+		actions.setAlignmentX(Component.LEFT_ALIGNMENT);
+		actions.setBorder(
+			BorderFactory.createEmptyBorder(0, 0, 0, Cards.SCROLLBAR_ALLOWANCE));
+
 		JButton save = Cards.button("Save as setup");
 		save.setMaximumSize(new Dimension(Integer.MAX_VALUE, 26));
 		save.setToolTipText("Save this as a setup you can come back to");
 		save.addActionListener(event -> saveShownSetup());
-		results.add(save);
+		actions.add(save);
 
-		results.add(Cards.gap(4));
+		actions.add(Cards.gap(4));
 
 		// Filtering without saving: most of the time you just want to go and grab the gear.
 		JButton show = Cards.button("Show in bank");
 		show.setMaximumSize(new Dimension(Integer.MAX_VALUE, 26));
 		show.setToolTipText("Filter your bank to these items without saving a setup");
 		show.addActionListener(event -> showShownSetupInBank());
-		results.add(show);
+		actions.add(show);
+
+		actions.setMaximumSize(new Dimension(Integer.MAX_VALUE, actions.getPreferredSize().height));
+		results.add(actions);
 	}
 
 	/**
