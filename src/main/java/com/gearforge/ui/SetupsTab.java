@@ -466,8 +466,8 @@ class SetupsTab extends JPanel
 		}
 		else
 		{
-			JLabel shortfall = new JLabel("<html><body style='width:140px'>Missing " + missing + ": "
-				+ Cards.escape(describeMissing(setup, statuses, inventoryStatuses, view)) + "</body></html>");
+			JLabel shortfall = new JLabel(Cards.wrappedText("Missing " + missing + ": "
+				+ describeMissing(setup, statuses, inventoryStatuses, view)));
 			shortfall.setFont(FontManager.getRunescapeSmallFont());
 			shortfall.setForeground(ColorScheme.BRAND_ORANGE);
 			shortfall.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -477,9 +477,8 @@ class SetupsTab extends JPanel
 		if (!upgrades.isEmpty() && !open)
 		{
 			inner.add(Cards.gap(4));
-			JLabel hint = new JLabel("<html><body style='width:130px'>"
-				+ upgrades.size() + (upgrades.size() == 1 ? " upgrade" : " upgrades")
-				+ " available — open to apply</body></html>");
+			JLabel hint = new JLabel(Cards.wrappedText(upgrades.size()
+				+ (upgrades.size() == 1 ? " upgrade" : " upgrades") + " available — open to apply"));
 			hint.setFont(FontManager.getRunescapeSmallFont());
 			hint.setForeground(ColorScheme.BRAND_ORANGE);
 			hint.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -568,6 +567,8 @@ class SetupsTab extends JPanel
 		JPanel text = new JPanel();
 		text.setLayout(new BoxLayout(text, BoxLayout.Y_AXIS));
 		text.setBackground(row.getBackground());
+		// An item name is as long as it is; the row must not grow past the panel to fit it.
+		Cards.fitToPanel(text);
 
 		String itemName = requirement == null
 			? "(empty)"
@@ -589,7 +590,7 @@ class SetupsTab extends JPanel
 
 		row.add(text, BorderLayout.CENTER);
 		row.add(slotButtons(setup, slot, upgrade, worn), BorderLayout.EAST);
-		return row;
+		return Cards.fitRow(row);
 	}
 
 	private JPanel slotButtons(

@@ -50,6 +50,9 @@ class ItemRow extends JPanel
 		JPanel text = new JPanel();
 		text.setLayout(new BoxLayout(text, BoxLayout.Y_AXIS));
 		text.setBackground(getBackground());
+		// An item name is as long as it is. Without this the row's own minimum grows with it and the
+		// row is laid out wider than the panel, taking the value on the right off the edge with it.
+		Cards.fitToPanel(text);
 
 		JLabel name = new JLabel(item.getName());
 		name.setFont(FontManager.getRunescapeSmallFont());
@@ -66,6 +69,7 @@ class ItemRow extends JPanel
 		value.setHorizontalAlignment(SwingConstants.RIGHT);
 		add(value, BorderLayout.EAST);
 
+		setMinimumSize(new Dimension(0, 42));
 		setToolTipText(item.getName() + " — " + stat.getDisplayName() + " " + stat.format(item.statValue(stat)));
 	}
 

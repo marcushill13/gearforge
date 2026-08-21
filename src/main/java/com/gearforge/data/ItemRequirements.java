@@ -12,6 +12,7 @@ import java.util.Map;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import lombok.extern.slf4j.Slf4j;
+import net.runelite.client.game.ItemVariationMapping;
 
 /**
  * Level requirements for equipping items.
@@ -73,7 +74,7 @@ public class ItemRequirements
 	 */
 	public boolean isKnown(int itemId)
 	{
-		return requirements.containsKey(itemId);
+		return requirements.containsKey(itemId) || requirements.containsKey(family(itemId));
 	}
 
 	/**
@@ -81,7 +82,21 @@ public class ItemRequirements
 	 */
 	public Map<String, Integer> requirementsFor(int itemId)
 	{
-		return requirements.getOrDefault(itemId, Collections.emptyMap());
+		Map<String, Integer> exact = requirements.get(itemId);
+		if (exact != null)
+		{
+			return exact;
+		}
+
+		// An ornament kit does not lower a requirement. Most of what is left unknown after both
+		// sources have been read is a recoloured, ornamented, trailblazer or deadman copy of something
+		// perfectly well known — dragon claws (or) needs the same 60 Attack the claws do.
+		return requirements.getOrDefault(family(itemId), Collections.emptyMap());
+	}
+
+	private static int family(int itemId)
+	{
+		return ItemVariationMapping.map(itemId);
 	}
 
 	/**

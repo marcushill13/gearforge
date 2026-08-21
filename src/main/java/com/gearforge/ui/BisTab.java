@@ -143,12 +143,6 @@ class BisTab extends JPanel
 	/** Below this a special adds nothing worth swapping weapons for. */
 	private static final double SPEC_WORTH_USING = 1.0;
 
-	/**
-	 * Width kept for the damage figure. Wide enough for a three-figure spec on a boss, measured in the
-	 * panel's own bold font rather than guessed at.
-	 */
-	private static final int SPEC_VALUE_WIDTH = 44;
-
 	/** Narrows the picker below it. Fifty-five weapons is far too many to scroll through. */
 	private final JTextField specSearch = new JTextField();
 
@@ -362,9 +356,11 @@ class BisTab extends JPanel
 		scroll.setBorder(BorderFactory.createEmptyBorder());
 		scroll.getVerticalScrollBar().setUnitIncrement(16);
 		scroll.getViewport().setBackground(ColorScheme.DARK_GRAY_COLOR);
-		// Capped so the list scrolls rather than pushing the results off screen.
+		// Capped so the list scrolls rather than pushing the results off screen, and clamped so its
+		// contents cannot widen it past the panel.
 		scroll.setPreferredSize(new Dimension(0, 150));
 		scroll.setMaximumSize(new Dimension(Integer.MAX_VALUE, 150));
+		scroll.setMinimumSize(new Dimension(0, 60));
 
 		JPanel wrapper = new JPanel(new BorderLayout());
 		wrapper.setBackground(ColorScheme.DARK_GRAY_COLOR);
@@ -739,6 +735,8 @@ class BisTab extends JPanel
 		JPanel text = new JPanel();
 		text.setLayout(new BoxLayout(text, BoxLayout.Y_AXIS));
 		text.setBackground(row.getBackground());
+		// A weapon name is as long as it is; the row must not grow to fit it.
+		Cards.fitToPanel(text);
 
 		JLabel dps = new JLabel(String.format("%.2f DPS", setup.getScore().getDps()));
 		dps.setFont(FontManager.getRunescapeBoldFont());
@@ -760,7 +758,7 @@ class BisTab extends JPanel
 		open.addActionListener(event -> profilePicker.setSelectedItem(profile));
 		row.add(open, BorderLayout.EAST);
 
-		return row;
+		return Cards.fitRow(row);
 	}
 
 	/**
@@ -1133,9 +1131,9 @@ class BisTab extends JPanel
 	 */
 	private JPanel specRow(SpecSuggestion suggestion)
 	{
-		JPanel row = new JPanel(new BorderLayout(6, 0));
+		JPanel row = new JPanel(new BorderLayout(Cards.ROW_GAP, 0));
 		row.setBackground(ColorScheme.DARKER_GRAY_COLOR);
-		row.setBorder(BorderFactory.createEmptyBorder(5, 6, 5, 6));
+		row.setBorder(BorderFactory.createEmptyBorder(5, Cards.ROW_PADDING, 5, Cards.ROW_PADDING));
 		row.setAlignmentX(Component.LEFT_ALIGNMENT);
 
 		JLabel icon = new JLabel();
@@ -1149,7 +1147,7 @@ class BisTab extends JPanel
 		// below its minimum — it squeezes the east side to nothing instead. A label's minimum is the
 		// width of its text, so the damage figure was being pushed off the panel entirely. Padding could
 		// never fix that, which is why it kept coming back.
-		text.setMinimumSize(new Dimension(0, 0));
+		Cards.fitToPanel(text);
 
 		JLabel name = new JLabel(suggestion.getSpecial().getDisplayName());
 		name.setFont(FontManager.getRunescapeBoldFont());
@@ -1184,12 +1182,11 @@ class BisTab extends JPanel
 		added.setHorizontalAlignment(SwingConstants.RIGHT);
 		added.setToolTipText("Damage this spec adds to the kill over an ordinary attack");
 		// Reserved outright, so it cannot be negotiated away by a long weapon name.
-		added.setPreferredSize(new Dimension(SPEC_VALUE_WIDTH, added.getPreferredSize().height));
-		added.setMinimumSize(new Dimension(SPEC_VALUE_WIDTH, added.getPreferredSize().height));
+		added.setPreferredSize(new Dimension(Cards.ROW_VALUE_WIDTH, added.getPreferredSize().height));
+		added.setMinimumSize(new Dimension(Cards.ROW_VALUE_WIDTH, added.getPreferredSize().height));
 		row.add(added, BorderLayout.EAST);
 
-		row.setMaximumSize(new Dimension(Integer.MAX_VALUE, row.getPreferredSize().height));
-		return row;
+		return Cards.fitRow(row);
 	}
 
 	/**
@@ -1431,15 +1428,51 @@ class BisTab extends JPanel
 
 		actions.add(Cards.gap(4));
 
-		// Filtering without saving: most of the time you just want to go and grab the gear.
+		// Filtering without saving: most of the time you just want to go and grab the gear. It has to
+		// toggle — the filter stays on the bank until something turns it off, and this tab offered no
+		// way to do that at all, so the only escape was the Setups tab or logging out.
 		JButton show = Cards.button("Show in bank");
 		show.setMaximumSize(new Dimension(Integer.MAX_VALUE, 26));
-		show.setToolTipText("Filter your bank to these items without saving a setup");
-		show.addActionListener(event -> showShownSetupInBank());
+		labelBankFilterButton(show);
+		show.addActionListener(event ->
+		{
+			if (bankFilterService.isShowingAnything())
+			{
+				clearBankFilter();
+			}
+			else
+			{
+				showShownSetupInBank();
+			}
+
+			labelBankFilterButton(show);
+		});
 		actions.add(show);
 
 		actions.setMaximumSize(new Dimension(Integer.MAX_VALUE, actions.getPreferredSize().height));
 		results.add(actions);
+	}
+
+	private void labelBankFilterButton(JButton button)
+	{
+		boolean showing = bankFilterService.isShowingAnything();
+		button.setText(showing ? "Clear bank filter" : "Show in bank");
+		button.setToolTipText(showing
+			? "Stop filtering the bank"
+			: "Filter your bank to these items without saving a setup");
+	}
+
+	/**
+	 * Clears whatever the bank is filtered to, wherever it was set from.
+	 * <p>
+	 * The active setup is cleared as well, otherwise the filter comes back by itself on the next
+	 * login — the plugin re-applies whatever is active.
+	 */
+	private void clearBankFilter()
+	{
+		setupStore.deactivate();
+		bankFilterService.clearFilter();
+		onSetupSaved.run();
 	}
 
 	/**
@@ -1535,6 +1568,7 @@ class BisTab extends JPanel
 		JPanel text = new JPanel();
 		text.setLayout(new BoxLayout(text, BoxLayout.Y_AXIS));
 		text.setBackground(row.getBackground());
+		Cards.fitToPanel(text);
 
 		JLabel name = new JLabel(item.getName());
 		name.setFont(FontManager.getRunescapeSmallFont());
@@ -1550,7 +1584,7 @@ class BisTab extends JPanel
 
 		row.add(text, BorderLayout.CENTER);
 		row.setToolTipText(item.getName());
-		return row;
+		return Cards.fitRow(row);
 	}
 
 	private void showMessage(String message)

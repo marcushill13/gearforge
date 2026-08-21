@@ -102,6 +102,86 @@ public class SetEffectRegistryTest
 			registry.evaluate(helm, CombatStyle.SLASH, Target.dummy(), false).getDamageMultiplier(), TOLERANCE);
 	}
 
+	/**
+	 * The imbue only ever bought the ranged and magic halves. A plain slayer helmet has always carried
+	 * the melee bonus in full, and listing only the imbued id meant every player without a Nightmare
+	 * Zone imbue was scored bare-headed on task.
+	 */
+	@Test
+	public void anUnimbuedHelmStillCarriesTheMeleeBonus()
+	{
+		for (int id : new int[]{ItemID.SLAYER_HELM, ItemID.HARMLESS_BLACK_MASK_10,
+			ItemID.SLAYER_HELM_TURQUOISE, ItemID.SLAYER_HELM_ARAXYTE})
+		{
+			List<GearItem> helm = Collections.singletonList(piece(id, EquipmentSlot.HEAD));
+
+			assertEquals("id " + id + " should give the melee bonus on task", 7.0 / 6.0,
+				registry.evaluate(helm, CombatStyle.SLASH, Target.dummy(), true).getDamageMultiplier(),
+				TOLERANCE);
+		}
+	}
+
+	@Test
+	public void onlyTheImbuedHelmHelpsRangedAndMagic()
+	{
+		List<GearItem> plain = Collections.singletonList(
+			piece(ItemID.SLAYER_HELM, EquipmentSlot.HEAD));
+		List<GearItem> imbued = Collections.singletonList(
+			piece(ItemID.SLAYER_HELM_I_HYDRA, EquipmentSlot.HEAD));
+
+		assertEquals(1.0,
+			registry.evaluate(plain, CombatStyle.RANGED, Target.dummy(), true).getDamageMultiplier(),
+			TOLERANCE);
+		assertEquals(1.15,
+			registry.evaluate(imbued, CombatStyle.RANGED, Target.dummy(), true).getDamageMultiplier(),
+			TOLERANCE);
+		assertEquals(1.15,
+			registry.evaluate(imbued, CombatStyle.MAGIC, Target.dummy(), true).getDamageMultiplier(),
+			TOLERANCE);
+	}
+
+	/**
+	 * Every colour, every charge, every Soul Wars and Emir's Arena copy. A hydra helm is not a hat.
+	 */
+	@Test
+	public void everySlayerHelmVariantIsRecognised()
+	{
+		int[] variants = {
+			ItemID.SLAYER_HELM_I, ItemID.SLAYER_HELM_I_BLACK, ItemID.SLAYER_HELM_I_GREEN,
+			ItemID.SLAYER_HELM_I_RED, ItemID.SLAYER_HELM_I_PURPLE, ItemID.SLAYER_HELM_I_TURQUOISE,
+			ItemID.SLAYER_HELM_I_HYDRA, ItemID.SLAYER_HELM_I_TWISTED, ItemID.SLAYER_HELM_I_JAD,
+			ItemID.SLAYER_HELM_I_VERZIK, ItemID.SLAYER_HELM_I_ZUK, ItemID.SLAYER_HELM_I_ARAXYTE,
+			ItemID.SLAYER_HELM_I_HOODED, ItemID.SW_SLAYER_HELM_I, ItemID.PVPA_SLAYER_HELM_I,
+			ItemID.NZONE_BLACK_MASK_1, ItemID.NZONE_BLACK_MASK_10, ItemID.SW_BLACK_MASK_5,
+		};
+
+		for (int id : variants)
+		{
+			List<GearItem> helm = Collections.singletonList(piece(id, EquipmentSlot.HEAD));
+
+			assertEquals("id " + id, 1.15,
+				registry.evaluate(helm, CombatStyle.RANGED, Target.dummy(), true).getDamageMultiplier(),
+				TOLERANCE);
+		}
+	}
+
+	/**
+	 * Whatever the optimizer is allowed to consider has to include every one of them, or the effect is
+	 * modelled and never reached: the head slot's candidates are chosen on raw stats, and a black mask
+	 * loses that comparison to almost anything.
+	 */
+	@Test
+	public void everySlayerHelmVariantIsOfferedToTheOptimizer()
+	{
+		java.util.Set<Integer> relevant = registry.relevantItemIds();
+
+		for (int id : new int[]{ItemID.SLAYER_HELM, ItemID.SLAYER_HELM_I, ItemID.SLAYER_HELM_I_HYDRA,
+			ItemID.HARMLESS_BLACK_MASK_10, ItemID.NZONE_BLACK_MASK, ItemID.SLAYER_HELM_ARAXYTE})
+		{
+			assertTrue("id " + id + " must be a candidate", relevant.contains(id));
+		}
+	}
+
 	@Test
 	public void salveAndSlayerDoNotStack()
 	{

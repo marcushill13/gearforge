@@ -310,6 +310,43 @@ public class DpsOptimizerTest
 		return new GearItem(id, name, 1, stats, EnumSet.of(Storage.BANK));
 	}
 
+	/**
+	 * On task, the head slot is the slayer helmet's — a seventh more damage and a seventh more
+	 * accuracy beats any raw stat a helm can carry. It was losing the slot because only one of its
+	 * seventy-odd ids was recognised, so an ordinary or recoloured helmet counted for nothing.
+	 */
+	@Test
+	public void aSlayerHelmetWinsTheHeadSlotOnTask()
+	{
+		List<GearItem> owned = Arrays.asList(
+			weapon(1, "Abyssal whip", 82, 82, 4, false),
+			armour(ItemID.TORVA_HELM, "Torva full helm", EquipmentSlot.HEAD, 12, 6),
+			armour(ItemID.SLAYER_HELM_I_HYDRA, "Slayer helmet (i)", EquipmentSlot.HEAD, 0, 0));
+
+		List<ScoredSetup> onTask = optimizer.best(owned, melee(), true, 1);
+		List<ScoredSetup> offTask = optimizer.best(owned, melee(), false, 1);
+
+		assertEquals("Slayer helmet (i)",
+			onTask.get(0).getSetup().get(EquipmentSlot.HEAD).getName());
+		assertEquals("Torva full helm",
+			offTask.get(0).getSetup().get(EquipmentSlot.HEAD).getName());
+	}
+
+	/**
+	 * The unimbued helmet carries the melee bonus in full, so it wins the slot the same way.
+	 */
+	@Test
+	public void anUnimbuedSlayerHelmetWinsItToo()
+	{
+		List<GearItem> owned = Arrays.asList(
+			weapon(1, "Abyssal whip", 82, 82, 4, false),
+			armour(ItemID.TORVA_HELM, "Torva full helm", EquipmentSlot.HEAD, 12, 6),
+			armour(ItemID.SLAYER_HELM, "Slayer helmet", EquipmentSlot.HEAD, 0, 0));
+
+		assertEquals("Slayer helmet",
+			optimizer.best(owned, melee(), true, 1).get(0).getSetup().get(EquipmentSlot.HEAD).getName());
+	}
+
 	private static GearItem armour(int id, String name, EquipmentSlot slot, int slash, int strength)
 	{
 		EquipmentStats stats = EquipmentStats.builder()

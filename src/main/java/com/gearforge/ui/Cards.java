@@ -23,6 +23,7 @@ import javax.swing.JToggleButton;
 import javax.swing.SwingConstants;
 import net.runelite.client.ui.ColorScheme;
 import net.runelite.client.ui.FontManager;
+import net.runelite.client.ui.PluginPanel;
 
 /**
  * Shared building blocks so the two tabs look like one plugin rather than two.
@@ -46,14 +47,114 @@ final class Cards
 	 */
 	static final int SCROLLBAR_ALLOWANCE = 12;
 
+	/** Padding inside a card, per side. */
+	static final int CARD_PADDING = 8;
+
+	/** The panel's own border, per side, set in GearForgePanel. */
+	private static final int PANEL_BORDER = 8;
+
 	/**
-	 * How wide text may be inside a row that also carries an icon and a value. The panel is 225 wide
-	 * before the scrollbar, and everything else in such a row is fixed, so this is what is left.
+	 * How wide anything in the panel may actually be.
+	 * <p>
+	 * RuneLite gives a plugin panel {@link PluginPanel#PANEL_WIDTH} pixels. The panel's own border
+	 * takes eight from each side, and once a tab is long enough to scroll — which every one of them
+	 * is — the scrollbar takes more off the right. Everything else here is derived from this rather
+	 * than guessed at, because guessing is what produced a panel that kept not fitting.
 	 */
-	static final int IN_ROW_TEXT_WIDTH = 92;
+	static final int CONTENT_WIDTH =
+		PluginPanel.PANEL_WIDTH - 2 * PANEL_BORDER - SCROLLBAR_ALLOWANCE;
+
+	/**
+	 * How wide wrapped text may be. Card padding on both sides, the accent strip a card may carry, and
+	 * two pixels of slack for a border this arithmetic has not accounted for.
+	 */
+	static final int TEXT_WIDTH = CONTENT_WIDTH - 2 * CARD_PADDING - ACCENT - 2;
+
+	/** The icon on the left of a row, and the gap after it. */
+	static final int ROW_ICON_WIDTH = 36;
+
+	/** Horizontal padding inside a row, per side. */
+	static final int ROW_PADDING = 6;
+
+	/** The gap a row's BorderLayout puts between its icon, its text and its value. */
+	static final int ROW_GAP = 6;
+
+	/** Reserved for the figure at the right of a row, wide enough for any of them. */
+	static final int ROW_VALUE_WIDTH = 44;
+
+	/**
+	 * How wide text may be inside a row that also carries an icon on one side and a value on the
+	 * other. What is left after everything fixed has taken its share.
+	 */
+	static final int IN_ROW_TEXT_WIDTH = CONTENT_WIDTH - 2 * ROW_PADDING - ROW_ICON_WIDTH
+		- 2 * ROW_GAP - ROW_VALUE_WIDTH;
 
 	private Cards()
 	{
+	}
+
+	/**
+	 * How many real pixels Swing gives one CSS pixel.
+	 * <p>
+	 * Swing's HTML renderer does not treat {@code width:140px} as 140 pixels — it scales it, by about a
+	 * third on a standard display. Every wrapped label in this panel was therefore a third wider than
+	 * the number written next to it, which is why the widths kept looking right in the source and
+	 * wrong on screen. Measured once rather than assumed, since the factor follows the display.
+	 */
+	private static final double CSS_PIXEL = measureCssPixel();
+
+	private static double measureCssPixel()
+	{
+		JLabel probe = new JLabel("<html><body style='width:100px'>x</body></html>");
+		probe.setFont(FontManager.getRunescapeSmallFont());
+
+		int measured = probe.getPreferredSize().width;
+		return measured > 0 ? measured / 100.0 : 1.0;
+	}
+
+	/**
+	 * Text that wraps within a given number of real pixels.
+	 */
+	private static String wrapped(String text, int pixels)
+	{
+		int css = Math.max(1, (int) Math.floor(pixels / CSS_PIXEL));
+		return "<html><body style='width:" + css + "px'>" + escape(text) + "</body></html>";
+	}
+
+	/**
+	 * Wrapped text at the panel's text width, for callers that need their own font or colour on it.
+	 */
+	static String wrappedText(String text)
+	{
+		return wrapped(text, TEXT_WIDTH);
+	}
+
+	/**
+	 * Stops a component insisting on more width than the panel has.
+	 * <p>
+	 * A BoxLayout hands each child the container's width, but never less than the child's own minimum
+	 * — and a minimum comes from the text inside, so one long item name lays its row out wider than
+	 * the panel and everything to the right of it goes off the edge. The scroll pane has no horizontal
+	 * bar, so there is no way to reach it. Every row, dropdown and button strip is clamped through
+	 * here, which is what makes "it does not fit" a thing that cannot happen rather than a thing to
+	 * keep noticing.
+	 */
+	static <T extends JComponent> T fitToPanel(T component)
+	{
+		component.setMinimumSize(new Dimension(0, component.getMinimumSize().height));
+		return component;
+	}
+
+	/**
+	 * The same, for a component whose height should also be pinned to what it needs — a row in a
+	 * vertical list, which BoxLayout would otherwise stretch to fill the viewport.
+	 */
+	static <T extends JComponent> T fitRow(T row)
+	{
+		int height = row.getPreferredSize().height;
+		row.setMinimumSize(new Dimension(0, height));
+		row.setMaximumSize(new Dimension(Integer.MAX_VALUE, height));
+		return row;
 	}
 
 	/**
@@ -91,7 +192,9 @@ final class Cards
 		label.setForeground(MUTED_TEXT);
 		label.setAlignmentX(Component.LEFT_ALIGNMENT);
 		label.setBorder(BorderFactory.createEmptyBorder(0, 0, 4, 0));
-		return label;
+		// Clipped rather than allowed to widen the panel: a label's minimum is the width of its text,
+		// and a BoxLayout honours that minimum even when the container is narrower.
+		return fitToPanel(label);
 	}
 
 	/**
@@ -103,7 +206,7 @@ final class Cards
 		label.setFont(FontManager.getRunescapeBoldFont().deriveFont(Font.BOLD, 16f));
 		label.setForeground(ColorScheme.BRAND_ORANGE);
 		label.setAlignmentX(Component.LEFT_ALIGNMENT);
-		return label;
+		return fitToPanel(label);
 	}
 
 	/**
@@ -115,7 +218,7 @@ final class Cards
 		label.setFont(FontManager.getRunescapeBoldFont().deriveFont(Font.BOLD, 13f));
 		label.setForeground(ColorScheme.LIGHT_GRAY_COLOR);
 		label.setAlignmentX(Component.LEFT_ALIGNMENT);
-		return label;
+		return fitToPanel(label);
 	}
 
 	/**
@@ -129,7 +232,7 @@ final class Cards
 		inner.setBackground(ColorScheme.DARKER_GRAY_COLOR);
 		inner.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
 
-		JLabel label = new JLabel("<html><body style='width:140px'>" + escape(text) + "</body></html>");
+		JLabel label = new JLabel(wrapped(text, TEXT_WIDTH));
 		label.setFont(FontManager.getRunescapeBoldFont());
 		label.setForeground(WARNING_COLOR);
 		label.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -158,20 +261,16 @@ final class Cards
 		label.setFont(FontManager.getRunescapeSmallFont());
 		label.setForeground(ColorScheme.LIGHT_GRAY_COLOR);
 		label.setAlignmentX(Component.LEFT_ALIGNMENT);
-		return label;
+		return fitToPanel(label);
 	}
 
-	/**
-	 * Muted, wrapped text for reasons and caveats.
-	 */
 	/**
 	 * Body text sized to sit inside a row that already has an icon on one side and a value on the
 	 * other.
 	 */
 	static JLabel bodyInRow(String text)
 	{
-		JLabel label = new JLabel("<html><body style='width:" + IN_ROW_TEXT_WIDTH + "px'>"
-			+ escape(text) + "</body></html>");
+		JLabel label = new JLabel(wrapped(text, IN_ROW_TEXT_WIDTH));
 		label.setFont(FontManager.getRunescapeSmallFont());
 		label.setForeground(ColorScheme.LIGHT_GRAY_COLOR);
 		label.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -185,8 +284,7 @@ final class Cards
 	 */
 	static JLabel mutedInRow(String text)
 	{
-		JLabel label = new JLabel("<html><body style='width:" + IN_ROW_TEXT_WIDTH + "px'>"
-			+ escape(text) + "</body></html>");
+		JLabel label = new JLabel(wrapped(text, IN_ROW_TEXT_WIDTH));
 		label.setFont(FontManager.getRunescapeSmallFont());
 		label.setForeground(MUTED_TEXT);
 		label.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -195,7 +293,7 @@ final class Cards
 
 	static JLabel muted(String text)
 	{
-		JLabel label = new JLabel("<html><body style='width:145px'>" + escape(text) + "</body></html>");
+		JLabel label = new JLabel(wrapped(text, TEXT_WIDTH));
 		label.setFont(FontManager.getRunescapeSmallFont());
 		label.setForeground(MUTED_TEXT);
 		label.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -250,7 +348,7 @@ final class Cards
 		button.setBorder(BorderFactory.createEmptyBorder(4, 3, 4, 3));
 		button.setFocusPainted(false);
 		button.setAlignmentX(Component.LEFT_ALIGNMENT);
-		return button;
+		return fitToPanel(button);
 	}
 
 	/**
@@ -277,6 +375,7 @@ final class Cards
 		header.setBorder(BorderFactory.createEmptyBorder(5, 6, 5, 6));
 		header.setPreferredSize(new Dimension(0, 30));
 		header.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
+		header.setMinimumSize(new Dimension(0, 30));
 		decorate.accept(header);
 
 		content.setVisible(false);
@@ -310,8 +409,13 @@ final class Cards
 		combo.setBorder(BorderFactory.createEmptyBorder(2, 4, 2, 4));
 		combo.setRenderer(new DarkListRenderer());
 		combo.setAlignmentX(Component.LEFT_ALIGNMENT);
-		// Without a maximum, BoxLayout leaves the combo at its preferred width instead of filling.
-		combo.setMaximumSize(new Dimension(Integer.MAX_VALUE, combo.getPreferredSize().height));
+
+		// A combo sizes itself to its longest entry. With a thousand monsters in the list that is far
+		// wider than the panel, and the box was laid out past the edge of it.
+		int height = combo.getPreferredSize().height;
+		combo.setPreferredSize(new Dimension(CONTENT_WIDTH, height));
+		combo.setMaximumSize(new Dimension(Integer.MAX_VALUE, height));
+		combo.setMinimumSize(new Dimension(0, height));
 		return combo;
 	}
 
@@ -325,6 +429,7 @@ final class Cards
 		row.setBackground(ColorScheme.DARK_GRAY_COLOR);
 		row.setAlignmentX(Component.LEFT_ALIGNMENT);
 		row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 26));
+		row.setMinimumSize(new Dimension(0, 26));
 
 		ButtonGroup group = new ButtonGroup();
 
@@ -336,6 +441,9 @@ final class Cards
 			option.setFocusPainted(false);
 			option.setBorder(BorderFactory.createEmptyBorder(4, 2, 4, 2));
 			option.setSelected(i == selectedIndex);
+			// A grid divides the width evenly, but only down to the widest label's minimum, so two long
+			// options together were enough to push the strip past the panel.
+			fitToPanel(option);
 			paintToggle(option);
 
 			option.addItemListener(event ->

@@ -4,6 +4,7 @@ import com.gearforge.data.GearItem;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -68,8 +69,69 @@ public class SetEffectRegistry
 	private static final int[] SALVE_I_IDS = {12017, 25250, 26763};
 	private static final int[] SALVE_EI_IDS = {12018, 25278, 26782};
 
-	private static final int BLACK_MASK_I = ItemID.NZONE_BLACK_MASK;
-	private static final int SLAYER_HELM_I = ItemID.SLAYER_HELM_I;
+	/**
+	 * Every imbued black mask and slayer helmet, including each colour, each charge of the mask, and
+	 * the Soul Wars and Emir's Arena copies. Only the plain imbued helm was listed before, so a player
+	 * in a turquoise or hydra helm — or any black mask above zero charges — was scored as wearing an
+	 * ordinary hat, and the optimizer had no reason to put it on.
+	 */
+	private static final Set<Integer> IMBUED_SLAYER_HEADGEAR = idSet(
+		ItemID.NZONE_BLACK_MASK_10, ItemID.NZONE_BLACK_MASK_9, ItemID.NZONE_BLACK_MASK_8,
+		ItemID.NZONE_BLACK_MASK_7, ItemID.NZONE_BLACK_MASK_6, ItemID.NZONE_BLACK_MASK_5,
+		ItemID.NZONE_BLACK_MASK_4, ItemID.NZONE_BLACK_MASK_3, ItemID.NZONE_BLACK_MASK_2,
+		ItemID.NZONE_BLACK_MASK_1, ItemID.NZONE_BLACK_MASK, ItemID.SLAYER_HELM_I,
+		ItemID.SLAYER_HELM_I_BLACK, ItemID.SLAYER_HELM_I_GREEN, ItemID.SLAYER_HELM_I_RED,
+		ItemID.SLAYER_HELM_I_PURPLE, ItemID.SLAYER_HELM_I_TURQUOISE, ItemID.SLAYER_HELM_I_HYDRA,
+		ItemID.SLAYER_HELM_I_TWISTED, ItemID.SW_SLAYER_HELM_I, ItemID.SW_SLAYER_HELM_I_BLACK,
+		ItemID.SW_SLAYER_HELM_I_GREEN, ItemID.SW_SLAYER_HELM_I_RED, ItemID.SW_SLAYER_HELM_I_PURPLE,
+		ItemID.SW_SLAYER_HELM_I_TURQUOISE, ItemID.SW_SLAYER_HELM_I_HYDRA,
+		ItemID.SW_SLAYER_HELM_I_TWISTED, ItemID.SW_BLACK_MASK_10, ItemID.SW_BLACK_MASK_9,
+		ItemID.SW_BLACK_MASK_8, ItemID.SW_BLACK_MASK_7, ItemID.SW_BLACK_MASK_6,
+		ItemID.SW_BLACK_MASK_5, ItemID.SW_BLACK_MASK_4, ItemID.SW_BLACK_MASK_3,
+		ItemID.SW_BLACK_MASK_2, ItemID.SW_BLACK_MASK_1, ItemID.SW_BLACK_MASK,
+		ItemID.SLAYER_HELM_I_JAD, ItemID.SW_SLAYER_HELM_I_JAD, ItemID.SLAYER_HELM_I_VERZIK,
+		ItemID.SW_SLAYER_HELM_I_VERZIK, ItemID.SLAYER_HELM_I_ZUK, ItemID.SW_SLAYER_HELM_I_ZUK,
+		ItemID.PVPA_SLAYER_HELM_I, ItemID.PVPA_SLAYER_HELM_I_BLACK, ItemID.PVPA_SLAYER_HELM_I_GREEN,
+		ItemID.PVPA_SLAYER_HELM_I_RED, ItemID.PVPA_SLAYER_HELM_I_PURPLE,
+		ItemID.PVPA_SLAYER_HELM_I_TURQUOISE, ItemID.PVPA_SLAYER_HELM_I_HYDRA,
+		ItemID.PVPA_SLAYER_HELM_I_TWISTED, ItemID.PVPA_SLAYER_HELM_I_JAD,
+		ItemID.PVPA_SLAYER_HELM_I_VERZIK, ItemID.PVPA_SLAYER_HELM_I_ZUK, ItemID.PVPA_BLACK_MASK_10,
+		ItemID.PVPA_BLACK_MASK_9, ItemID.PVPA_BLACK_MASK_8, ItemID.PVPA_BLACK_MASK_7,
+		ItemID.PVPA_BLACK_MASK_6, ItemID.PVPA_BLACK_MASK_5, ItemID.PVPA_BLACK_MASK_4,
+		ItemID.PVPA_BLACK_MASK_3, ItemID.PVPA_BLACK_MASK_2, ItemID.PVPA_BLACK_MASK_1,
+		ItemID.PVPA_BLACK_MASK, ItemID.SLAYER_HELM_I_ARAXYTE, ItemID.SW_SLAYER_HELM_I_ARAXYTE,
+		ItemID.PVPA_SLAYER_HELM_I_ARAXYTE, ItemID.SLAYER_HELM_I_HOODED,
+		ItemID.SW_SLAYER_HELM_I_HOODED, ItemID.PVPA_SLAYER_HELM_I_HOODED,
+		ItemID.LEAGUE_6_SLAYER_HELM1_I, ItemID.SW_LEAGUE_6_SLAYER_HELM1_I,
+		ItemID.PVPA_LEAGUE_6_SLAYER_HELM1_I, ItemID.LEAGUE_6_SLAYER_HELM2_I,
+		ItemID.SW_LEAGUE_6_SLAYER_HELM2_I, ItemID.PVPA_LEAGUE_6_SLAYER_HELM2_I);
+
+	/**
+	 * The unimbued mask and helmet. These carry the melee bonus in full — the imbue only ever added
+	 * the ranged and magic halves — so leaving them out cost every player without a Nightmare Zone
+	 * imbue the single largest bonus available to them on task.
+	 */
+	private static final Set<Integer> PLAIN_SLAYER_HEADGEAR = idSet(
+		ItemID.HARMLESS_BLACK_MASK_10, ItemID.HARMLESS_BLACK_MASK_9, ItemID.HARMLESS_BLACK_MASK_8,
+		ItemID.HARMLESS_BLACK_MASK_7, ItemID.HARMLESS_BLACK_MASK_6, ItemID.HARMLESS_BLACK_MASK_5,
+		ItemID.HARMLESS_BLACK_MASK_4, ItemID.HARMLESS_BLACK_MASK_3, ItemID.HARMLESS_BLACK_MASK_2,
+		ItemID.HARMLESS_BLACK_MASK_1, ItemID.HARMLESS_BLACK_MASK, ItemID.SLAYER_HELM,
+		ItemID.SLAYER_HELM_BLACK, ItemID.SLAYER_HELM_GREEN, ItemID.SLAYER_HELM_RED,
+		ItemID.SLAYER_HELM_PURPLE, ItemID.SLAYER_HELM_TURQUOISE, ItemID.SLAYER_HELM_HYDRA,
+		ItemID.SLAYER_HELM_TWISTED, ItemID.SLAYER_HELM_JAD, ItemID.SLAYER_HELM_VERZIK,
+		ItemID.SLAYER_HELM_ZUK, ItemID.SLAYER_HELM_ARAXYTE, ItemID.SLAYER_HELM_HOODED,
+		ItemID.LEAGUE_6_SLAYER_HELM1, ItemID.LEAGUE_6_SLAYER_HELM2);
+
+	private static Set<Integer> idSet(int... ids)
+	{
+		Set<Integer> set = new HashSet<>();
+		for (int id : ids)
+		{
+			set.add(id);
+		}
+
+		return Collections.unmodifiableSet(set);
+	}
 
 	private static final int DRAGON_HUNTER_LANCE = ItemID.DRAGONHUNTER_LANCE;
 	private static final int DRAGON_HUNTER_CROSSBOW = ItemID.DRAGONHUNTER_XBOW;
@@ -184,8 +246,8 @@ public class SetEffectRegistry
 		{
 			ids.add(id);
 		}
-		ids.add(BLACK_MASK_I);
-		ids.add(SLAYER_HELM_I);
+		ids.addAll(IMBUED_SLAYER_HEADGEAR);
+		ids.addAll(PLAIN_SLAYER_HEADGEAR);
 		ids.add(DRAGON_HUNTER_LANCE);
 		ids.add(DRAGON_HUNTER_CROSSBOW);
 		ids.add(DRAGON_HUNTER_WAND);
@@ -925,6 +987,19 @@ public class SetEffectRegistry
 		return 1.0;
 	}
 
+	private static boolean containsAny(Set<Integer> ids, Set<Integer> wanted)
+	{
+		for (int id : ids)
+		{
+			if (wanted.contains(id))
+			{
+				return true;
+			}
+		}
+
+		return false;
+	}
+
 	private double slayerMultiplier(Set<Integer> ids, CombatStyle style, boolean onSlayerTask, List<String> notes)
 	{
 		if (!onSlayerTask)
@@ -932,14 +1007,27 @@ public class SetEffectRegistry
 			return 1.0;
 		}
 
-		if (!ids.contains(SLAYER_HELM_I) && !ids.contains(BLACK_MASK_I))
+		boolean imbued = containsAny(ids, IMBUED_SLAYER_HEADGEAR);
+		if (!imbued && !containsAny(ids, PLAIN_SLAYER_HEADGEAR))
 		{
 			return 1.0;
 		}
 
-		// Melee gets 7/6; ranged and magic get 1.15 from the imbued versions.
-		double multiplier = style.isMelee() ? SEVEN_SIXTHS : 1.15;
-		notes.add("Slayer helm: target is on task");
-		return multiplier;
+		// Melee gets 7/6 from either. Ranged and magic get 1.15, but only from an imbued one — an
+		// ordinary slayer helmet does nothing at all for them.
+		if (style.isMelee())
+		{
+			notes.add("Slayer helm: target is on task");
+			return SEVEN_SIXTHS;
+		}
+
+		if (!imbued)
+		{
+			notes.add("Slayer helm does nothing here — only the imbued version helps ranged and magic");
+			return 1.0;
+		}
+
+		notes.add("Slayer helm (i): target is on task");
+		return 1.15;
 	}
 }

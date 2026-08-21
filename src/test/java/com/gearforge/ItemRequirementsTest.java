@@ -63,6 +63,63 @@ public class ItemRequirementsTest
 		assertTrue(requirements.requirementsFor(unknown).isEmpty());
 	}
 
+	/**
+	 * The reported bug, and the reason the wiki is read at all: blood moon armour needs 75 Strength,
+	 * osrsbox-db has never heard of it, and an account without the Strength was being told it was
+	 * best in slot.
+	 */
+	@Test
+	public void gearReleasedAfterTheOldDatasetIsStillEnforced()
+	{
+		PlayerLevels noStrength = PlayerLevels.builder()
+			.attack(99).strength(70).defence(99).ranged(99).magic(99)
+			.prayer(99).hitpoints(99).slayer(99)
+			.build();
+
+		for (int id : new int[]{ItemID.BLOOD_MOON_HELM, ItemID.BLOOD_MOON_CHESTPLATE,
+			ItemID.BLOOD_MOON_TASSETS})
+		{
+			assertTrue("id " + id + " should have known requirements", requirements.isKnown(id));
+			assertEquals(Integer.valueOf(75), requirements.requirementsFor(id).get("strength"));
+			assertFalse("id " + id + " needs 75 Strength", requirements.canEquip(id, noStrength));
+		}
+	}
+
+	@Test
+	public void theRestOfTheModernBankIsCoveredToo()
+	{
+		assertEquals(Integer.valueOf(80), requirements.requirementsFor(ItemID.TORVA_HELM).get("defence"));
+		assertEquals(Integer.valueOf(80), requirements.requirementsFor(ItemID.MASORI_BODY).get("ranged"));
+		assertEquals(Integer.valueOf(85), requirements.requirementsFor(ItemID.TUMEKENS_SHADOW).get("magic"));
+		assertEquals(Integer.valueOf(78), requirements.requirementsFor(ItemID.OATHPLATE_HELM).get("defence"));
+		assertEquals(Integer.valueOf(75), requirements.requirementsFor(ItemID.VOIDWAKER).get("attack"));
+		assertEquals(Integer.valueOf(82), requirements.requirementsFor(ItemID.OSMUMTENS_FANG).get("attack"));
+	}
+
+	/**
+	 * Where the two sources disagree the wiki is the current one: osrsbox has the kodai wand at 75
+	 * Magic and the bow of faerdhinen at 75 Ranged, and both are eighty.
+	 */
+	@Test
+	public void aStaleRequirementDoesNotWinOverTheCurrentOne()
+	{
+		assertEquals(Integer.valueOf(80), requirements.requirementsFor(ItemID.KODAI_WAND).get("magic"));
+		assertEquals(Integer.valueOf(80), requirements.requirementsFor(ItemID.BOW_OF_FAERDHINEN).get("ranged"));
+	}
+
+	/**
+	 * An ornament kit does not lower a requirement. Recoloured and ornamented copies are left out of
+	 * both sources, and falling back to the family is what keeps them from reading as unrestricted.
+	 */
+	@Test
+	public void anOrnamentedCopyInheritsTheRequirementOfWhatItIs()
+	{
+		assertEquals(Integer.valueOf(60),
+			requirements.requirementsFor(ItemID.DRAGON_CLAWS_ORNAMENT).get("attack"));
+		assertEquals(Integer.valueOf(10),
+			requirements.requirementsFor(ItemID.SLAYER_HELM_ARAXYTE).get("defence"));
+	}
+
 	@Test
 	public void aLowLevelAccountIsBlockedFromHighTierGear()
 	{
