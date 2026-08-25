@@ -22,7 +22,7 @@ import net.runelite.client.ui.components.materialtabs.MaterialTab;
 import net.runelite.client.ui.components.materialtabs.MaterialTabGroup;
 
 /**
- * The GearForge sidebar: Slots, Search, Setups and BiS.
+ * The GearForge sidebar: Setups, Search, BiS and Raids.
  */
 @Singleton
 public class GearForgePanel extends PluginPanel
@@ -38,6 +38,7 @@ public class GearForgePanel extends PluginPanel
 	private final SetupsTab setupsTab;
 	private final SlotsTab slotsTab;
 	private final BisTab bisTab;
+	private final RaidsTab raidsTab = new RaidsTab();
 	private final JLabel staleness = new JLabel();
 
 	/** The tab currently on screen. Only this one is ever recomputed. */
@@ -74,24 +75,30 @@ public class GearForgePanel extends PluginPanel
 		display.setBackground(ColorScheme.DARK_GRAY_COLOR);
 
 		MaterialTabGroup tabGroup = new MaterialTabGroup(display);
-		// Three tabs fit on one row at this width. The old two-by-two grid existed because a fourth tab
-		// wrapped onto a row with no height and vanished; with Bosses gone that is no longer a problem.
-		tabGroup.setLayout(new GridLayout(1, 3, 2, 2));
+		// Two rows, because four will not fit on one. A grid divides the width evenly, so at 225 pixels
+		// each of four tabs gets 47 — and "Raids (TBD)" needs 86, "Setups" 60. Measured rather than
+		// guessed at: a label wider than its cell is what made an earlier fourth tab vanish.
+		tabGroup.setLayout(new GridLayout(2, 2, 2, 2));
 		tabGroup.setAlignmentX(LEFT_ALIGNMENT);
-		tabGroup.setMaximumSize(new Dimension(Integer.MAX_VALUE, 28));
+		tabGroup.setMaximumSize(new Dimension(Integer.MAX_VALUE, 58));
 
 		MaterialTab setups = new MaterialTab("Setups", tabGroup, setupsTab);
 		MaterialTab slots = new MaterialTab("Search", tabGroup, slotsTab);
 		MaterialTab bis = new MaterialTab("BiS", tabGroup, bisTab);
+		MaterialTab raids = new MaterialTab(RaidsTab.TITLE, tabGroup, raidsTab);
+		raids.setToolTipText("Raid gear — not built yet");
 		// Recompute only the tab being looked at, and only when it is switched to. Rebuilding every one
 		// on every gear change is what made the client stutter.
 		trackSelection(setups, setupsTab::rebuild);
 		trackSelection(slots, slotsTab::rebuild);
 		trackSelection(bis, bisTab::rebuild);
+		// Nothing to recompute: the tab is a notice, not a result.
+		trackSelection(raids, () -> { });
 
 		tabGroup.addTab(setups);
 		tabGroup.addTab(slots);
 		tabGroup.addTab(bis);
+		tabGroup.addTab(raids);
 
 		activeRebuild = setupsTab::rebuild;
 		tabGroup.select(setups);
