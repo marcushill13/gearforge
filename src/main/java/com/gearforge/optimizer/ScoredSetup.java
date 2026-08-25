@@ -5,11 +5,13 @@ import com.gearforge.data.GearItem;
 import com.gearforge.data.EquipmentStats;
 import com.gearforge.dps.CombatStyle;
 import com.gearforge.dps.SetupScore;
+import com.gearforge.dps.Spell;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import javax.annotation.Nullable;
 
 /**
  * A candidate setup with its score and the effects that applied to it.
@@ -37,14 +39,32 @@ public final class ScoredSetup
 	private final SetupScore score;
 	private final CombatStyle style;
 	private final List<String> notes;
+	private final Spell spell;
 
 	ScoredSetup(
 		Map<EquipmentSlot, GearItem> setup, SetupScore score, CombatStyle style, List<String> notes)
+	{
+		this(setup, score, style, notes, null);
+	}
+
+	ScoredSetup(
+		Map<EquipmentSlot, GearItem> setup, SetupScore score, CombatStyle style, List<String> notes,
+		@Nullable Spell spell)
 	{
 		this.setup = new EnumMap<>(setup);
 		this.score = score;
 		this.style = style;
 		this.notes = notes;
+		this.spell = spell;
+	}
+
+	/**
+	 * The spell this setup was scored casting, or null for anything that is not magic.
+	 */
+	@Nullable
+	public Spell getSpell()
+	{
+		return spell;
 	}
 
 	public Map<EquipmentSlot, GearItem> getSetup()

@@ -46,6 +46,7 @@ import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 import javax.annotation.Nullable;
@@ -1239,6 +1240,11 @@ class BisTab extends JPanel
 			return;
 		}
 
+		// Five setups that all score 2.48 are not five answers, they are one answer and four ties on a
+		// slot that changes nothing — an emerald ring against a ring of dueling(1) against a ring of
+		// dueling(5). Only setups that actually score differently are worth offering.
+		best = distinctlyScored(best);
+
 		int index = Math.min(shownSetupIndex, best.size() - 1);
 		ScoredSetup top = best.get(index);
 		remember(top.getSetup(), profile.toString());
@@ -1271,8 +1277,10 @@ class BisTab extends JPanel
 
 		List<String> reasons = new ArrayList<>(top.getNotes());
 		String against = target == null ? "a dummy target" : target.displayName();
-		reasons.add(profile.getStyle().isMagic()
-			? "Assumes Ice Barrage, scored against " + against + "."
+		// The spell follows the target's elemental weakness now, so the panel has to say which one it
+		// settled on. It claimed Ice Barrage whatever it had actually scored.
+		reasons.add(profile.getStyle().isMagic() && top.getSpell() != null
+			? "Casting " + top.getSpell().getDisplayName() + ", scored against " + against + "."
 			: "Scored against " + against + ".");
 		addSlayerRequirement(target, top.getSetup(), reasons);
 		addUncheckedWarning(top.getSetup(), pool, reasons);
@@ -1308,6 +1316,28 @@ class BisTab extends JPanel
 		}
 
 		finish();
+	}
+
+	/**
+	 * One setup per distinct DPS, keeping the best-ranked of each.
+	 * <p>
+	 * Rounded to what the panel prints: if two setups display the same number, offering both as
+	 * alternatives tells the reader nothing they can act on.
+	 */
+	static List<ScoredSetup> distinctlyScored(List<ScoredSetup> best)
+	{
+		List<ScoredSetup> distinct = new ArrayList<>();
+		Set<Long> seen = new HashSet<>();
+
+		for (ScoredSetup setup : best)
+		{
+			if (seen.add(Math.round(setup.getScore().getDps() * 100)))
+			{
+				distinct.add(setup);
+			}
+		}
+
+		return distinct;
 	}
 
 	private void renderDefensive(OptimizerResult best, Profile profile, GearPool pool)

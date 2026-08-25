@@ -83,15 +83,21 @@ public class ItemRequirements
 	public Map<String, Integer> requirementsFor(int itemId)
 	{
 		Map<String, Integer> exact = requirements.get(itemId);
-		if (exact != null)
+		if (exact != null && !exact.isEmpty())
 		{
 			return exact;
 		}
 
-		// An ornament kit does not lower a requirement. Most of what is left unknown after both
-		// sources have been read is a recoloured, ornamented, trailblazer or deadman copy of something
-		// perfectly well known — dragon claws (or) needs the same 60 Attack the claws do.
-		return requirements.getOrDefault(family(itemId), Collections.emptyMap());
+		// An ornament kit does not lower a requirement, and an ornamented item's page rarely restates
+		// one — so an empty entry is not the last word, only the absence of a statement on that page.
+		// The family is: dragon claws (or) needs the same 60 Attack the claws do.
+		Map<String, Integer> family = requirements.get(family(itemId));
+		if (family != null)
+		{
+			return family;
+		}
+
+		return exact == null ? Collections.emptyMap() : exact;
 	}
 
 	private static int family(int itemId)

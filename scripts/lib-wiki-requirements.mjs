@@ -104,6 +104,33 @@ export function requirementsFromWikitext(wikitext) {
 }
 
 /**
+ * Whether the page states, one way or another, that the item needs no levels to wear.
+ *
+ * Absent data and no requirement are not the same thing, and the plugin was treating them alike: it
+ * warned "could not check requirements for Amulet of glory" about an amulet anyone can wear. A page
+ * that never names a combat skill in the same breath as putting the item on is stating that there is
+ * nothing to check. A page that does name one but whose wording could not be read stays unknown,
+ * since that is the case where guessing "none" would put unwearable gear back on the panel.
+ */
+export function statesNoRequirement(wikitext) {
+  const lead = wikitext.split(/\n==/)[0];
+  const prose = lead.replace(/\{\{[^{}]*\}\}/gs, ' ').replace(/\[\[File:[^\]]*\]\]/g, ' ');
+  const anySkill = new RegExp(SKILL_PATTERN, 'i');
+
+  for (const sentence of prose.split(/(?<=\.)\s+/)) {
+    if (!/requir/i.test(sentence) || !EQUIP_VERBS.test(sentence) || MAKING_VERBS.test(sentence)) {
+      continue;
+    }
+
+    if (anySkill.test(sentence)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+/**
  * Every item id the page describes, including each version of a multi-version item.
  */
 export function idsFromWikitext(wikitext) {

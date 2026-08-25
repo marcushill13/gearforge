@@ -237,6 +237,24 @@ public class DpsOptimizer
 		return grown.subList(0, Math.min(BEAM_WIDTH, grown.size()));
 	}
 
+	/**
+	 * The spell this weapon would be cast with.
+	 * <p>
+	 * Chosen before the weapon is known, so a twinflame staff never got a spell it could double. Now
+	 * that the weapon is in hand, reconsider: a Fire Wave fired twice beats a Fire Surge fired once.
+	 */
+	private static CombatContext withSpellFor(GearItem weapon, CombatContext template)
+	{
+		if (!template.getStyle().isMagic() || weapon.getItemId() != TWINFLAME_STAFF)
+		{
+			return template;
+		}
+
+		return template.toBuilder()
+			.spell(Spell.bestForTwinflame(template.getTarget(), template.getMagicLevel(), true))
+			.build();
+	}
+
 	private List<ScoredSetup> rank(
 		List<Map<EquipmentSlot, GearItem>> beam,
 		CombatContext template,
@@ -252,7 +270,14 @@ public class DpsOptimizer
 			SetEffects effects = setEffects.evaluate(
 				setup.values(), template.getStyle(), template.getTarget(), onSlayerTask);
 
-			ScoredSetup candidate = new ScoredSetup(setup, score(setup, template, onSlayerTask, dartStrength), template.getStyle(), effects.getNotes());
+			GearItem weapon = setup.get(EquipmentSlot.WEAPON);
+			// The spell goes on the result so the panel can say which one it assumed, rather than
+			// claiming Ice Barrage for a setup that is casting a Fire Surge.
+			Spell spell = weapon == null ? template.getSpell() : withSpellFor(weapon, template).getSpell();
+
+			ScoredSetup candidate = new ScoredSetup(
+				setup, score(setup, template, onSlayerTask, dartStrength), template.getStyle(),
+				effects.getNotes(), spell);
 			if (seen.add(candidate.signature()))
 			{
 				scored.add(candidate);
@@ -317,16 +342,7 @@ public class DpsOptimizer
 			pieces.add(EquipmentStats.builder().rangedStrength(dartStrength).build());
 		}
 
-		// The spell is chosen before the weapon is known, so a twinflame staff never got a spell it could
-		// double. Now that the weapon is in hand, reconsider: a Fire Wave fired twice beats a Fire Surge
-		// fired once.
-		CombatContext scored = template;
-		if (template.getStyle().isMagic() && weapon.getItemId() == TWINFLAME_STAFF)
-		{
-			scored = template.toBuilder()
-				.spell(Spell.bestForTwinflame(template.getTarget(), template.getMagicLevel(), true))
-				.build();
-		}
+		CombatContext scored = withSpellFor(weapon, template);
 
 		// This call dropped the spell entirely, so the elemental tomes and the twinflame staff could
 		// never fire however the spell was chosen — the effects were modelled and then never reached.

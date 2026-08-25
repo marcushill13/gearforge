@@ -23,7 +23,9 @@
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { fetchWikitext, idsFromWikitext, requirementsFromWikitext, SKILLS } from './lib-wiki-requirements.mjs';
+import {
+  fetchWikitext, idsFromWikitext, requirementsFromWikitext, statesNoRequirement, SKILLS,
+} from './lib-wiki-requirements.mjs';
 
 const OSRSBOX = 'https://raw.githubusercontent.com/osrsbox/osrsbox-db/master/docs/items-complete.json';
 
@@ -106,6 +108,7 @@ async function fromWiki(equipment) {
   const names = [...idsByName.keys()];
   const requirements = {};
   let read = 0;
+  let stated = 0;
 
   for (let start = 0; start < names.length; start += BATCH) {
     const batch = names.slice(start, start + BATCH);
@@ -117,12 +120,21 @@ async function fromWiki(equipment) {
         continue;
       }
 
-      const found = requirementsFromWikitext(wikitext);
+      // An empty entry is not the same as no entry: it records that the page was read and says the
+      // item needs nothing, which is what stops the panel warning that it could not check an amulet
+      // of glory.
+      const found = requirementsFromWikitext(wikitext)
+        || (statesNoRequirement(wikitext) ? {} : null);
+
       if (!found) {
         continue;
       }
 
-      read += 1;
+      if (Object.keys(found).length === 0) {
+        stated += 1;
+      } else {
+        read += 1;
+      }
 
       // The ids the calculator has under this name, plus every version the page itself lists — a
       // degraded or ornamented copy needs the same levels as the one the page is named for.
@@ -137,7 +149,7 @@ async function fromWiki(equipment) {
   }
 
   process.stdout.write('\n');
-  return { requirements, read };
+  return { requirements, read, stated };
 }
 
 /**
@@ -175,7 +187,7 @@ async function main() {
   process.stdout.write(`Reading ${WIKI} for ${equipment.length} equipment entries\n`);
   const wiki = await fromWiki(equipment);
   process.stdout.write(`wiki: ${Object.keys(wiki.requirements).length} entries `
-    + `from ${wiki.read} pages\n`);
+    + `from ${wiki.read} pages with requirements, ${wiki.stated} stating none\n`);
 
   // The wiki goes in first so a disagreement is resolved in the direction of the current source.
   const requirements = { ...wiki.requirements };

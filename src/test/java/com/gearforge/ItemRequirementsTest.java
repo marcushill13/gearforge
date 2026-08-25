@@ -120,6 +120,21 @@ public class ItemRequirementsTest
 			requirements.requirementsFor(ItemID.SLAYER_HELM_ARAXYTE).get("defence"));
 	}
 
+	/**
+	 * Absent data and no requirement are not the same thing, and the panel was treating them alike —
+	 * it warned that it could not check an amulet of glory, which anyone can wear. An item whose page
+	 * says there is nothing to check is now recorded as such.
+	 */
+	@Test
+	public void anItemWithNoRequirementsIsKnownToHaveNone()
+	{
+		assertTrue("An amulet of glory is a known quantity",
+			requirements.isKnown(ItemID.AMULET_OF_GLORY));
+		assertTrue(requirements.requirementsFor(ItemID.AMULET_OF_GLORY).isEmpty());
+		assertNull(requirements.describeShortfall(ItemID.AMULET_OF_GLORY, levels(1, 1, 1)));
+		assertTrue(requirements.canEquip(ItemID.AMULET_OF_GLORY, levels(1, 1, 1)));
+	}
+
 	@Test
 	public void aLowLevelAccountIsBlockedFromHighTierGear()
 	{
