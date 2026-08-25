@@ -239,6 +239,87 @@ public class DpsOptimizerTest
 		assertEquals(ItemID.ABYSSAL_WHIP, best.getSetup().get(EquipmentSlot.WEAPON).getItemId());
 	}
 
+	/**
+	 * A bow of faerdhinen makes its own arrows. Every bow was taken to need something in the ammo
+	 * slot, so a setup holding one scored zero and was discarded before it could be compared with
+	 * anything — reported as the panel "ignoring bowfa if you have a blowpipe", though in truth the
+	 * bow was never in the running at all.
+	 */
+	@Test
+	public void aBowThatMakesItsOwnArrowsIsScoredWithoutThem()
+	{
+		GearItem bowfa = rangedStrengthWeapon(ItemID.BOW_OF_FAERDHINEN, "Bow of faerdhinen", 128, 106, 5);
+
+		List<ScoredSetup> best = optimizer.best(
+			Collections.singletonList(bowfa), rangedContext(), false, 1);
+
+		assertFalse("A bow of faerdhinen needs no arrows", best.isEmpty());
+		assertEquals(ItemID.BOW_OF_FAERDHINEN, best.get(0).getSetup().get(EquipmentSlot.WEAPON).getItemId());
+		assertNull("and must not be given any", best.get(0).getSetup().get(EquipmentSlot.AMMO));
+	}
+
+	/**
+	 * The comparison the report was really about. A blowpipe loaded with dragon darts is a fine
+	 * weapon; it is not a bow of faerdhinen.
+	 */
+	@Test
+	public void aBowOfFaerdhinenBeatsABlowpipe()
+	{
+		List<GearItem> owned = Arrays.asList(
+			rangedStrengthWeapon(ItemID.BOW_OF_FAERDHINEN, "Bow of faerdhinen", 128, 106, 5),
+			rangedStrengthWeapon(ItemID.TOXIC_BLOWPIPE, "Toxic blowpipe", 30, 20, 3),
+			ammo(ItemID.DRAGON_DART, "Dragon dart", 20));
+
+		ScoredSetup best = optimizer.best(owned, rangedContext(), false, 1).get(0);
+
+		assertEquals(ItemID.BOW_OF_FAERDHINEN, best.getSetup().get(EquipmentSlot.WEAPON).getItemId());
+	}
+
+	/**
+	 * The blowpipe still has to be scored with its darts, which is a separate fix that must not be
+	 * undone by this one: on its own twenty ranged strength it loses to a rune knife.
+	 */
+	@Test
+	public void aBlowpipeStillCountsItsDarts()
+	{
+		GearItem blowpipe = rangedStrengthWeapon(ItemID.TOXIC_BLOWPIPE, "Toxic blowpipe", 30, 20, 3);
+		GearItem darts = ammo(ItemID.DRAGON_DART, "Dragon dart", 20);
+
+		double withDarts = optimizer
+			.best(Arrays.asList(blowpipe, darts), rangedContext(), false, 1).get(0).getScore().getDps();
+		double without = optimizer
+			.best(Collections.singletonList(blowpipe), rangedContext(), false, 1).get(0).getScore().getDps();
+
+		assertTrue("Darts have to raise what the pipe hits for", withDarts > without);
+	}
+
+	private static CombatContext rangedContext()
+	{
+		return melee().toBuilder()
+			.style(CombatStyle.RANGED)
+			.rangedLevel(99)
+			.target(Target.builder()
+				.name("Boss")
+				.defenceLevel(150)
+				.defensiveBonuses(EquipmentStats.builder().drange(50).build())
+				.build())
+			.build();
+	}
+
+	private static GearItem rangedStrengthWeapon(
+		int id, String name, int rangedAttack, int rangedStrength, int speed)
+	{
+		EquipmentStats stats = EquipmentStats.builder()
+			.arange(rangedAttack)
+			.rangedStrength(rangedStrength)
+			.slot(EquipmentSlot.WEAPON.getSlotIndex())
+			.twoHanded(true)
+			.speed(speed)
+			.build();
+
+		return new GearItem(id, name, 1, stats, EnumSet.of(Storage.BANK));
+	}
+
 	private static GearItem rangedWeapon(int id, String name, int rangedAttack, int speed)
 	{
 		EquipmentStats stats = EquipmentStats.builder()

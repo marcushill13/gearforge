@@ -16,6 +16,7 @@ import javax.annotation.Nullable;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import lombok.extern.slf4j.Slf4j;
+import net.runelite.client.game.ItemVariationMapping;
 
 /**
  * What kind of weapon or ammunition an item is.
@@ -45,6 +46,29 @@ public class ItemCategories
 	public static final String BRUTAL = "BRUTAL";
 	public static final String BOLT = "BOLT";
 	public static final String JAVELIN = "JAVELIN";
+
+	/**
+	 * Ranged weapons that make their own ammunition, listed by the family every variant maps to.
+	 * <p>
+	 * A bow of faerdhinen is category "Bow", and every bow was taken to need arrows in the ammo slot —
+	 * so a setup holding one scored zero and was thrown away before it could be compared with
+	 * anything. It was not that the bow lost to a blowpipe; it was never in the running. The same went
+	 * for every crystal bow, the corrupted bows from the Gauntlet, Craw's bow and the webweaver.
+	 * <p>
+	 * Families rather than ids: this one entry covers the seven Prifddinas colours of the corrupted
+	 * bow, both charge states, and the deadman copy.
+	 */
+	private static final Set<Integer> SUPPLY_OWN_AMMO = Collections.unmodifiableSet(
+		new java.util.HashSet<>(java.util.Arrays.asList(
+			25862,  // Bow of faerdhinen, every colour and charge state
+			4212,   // Crystal bow, including the Gauntlet's basic, attuned and perfected
+			23855,  // Corrupted bow
+			22547,  // Craw's bow
+			27652,  // Webweaver bow
+			12924,  // Toxic blowpipe
+			28687,  // Blazing blowpipe
+			30373   // Rosewood blowpipe
+		)));
 
 	private final Map<Integer, String> categories;
 
@@ -215,11 +239,26 @@ public class ItemCategories
 	 */
 	public boolean requiresAmmo(int weaponId)
 	{
+		if (suppliesOwnAmmo(weaponId))
+		{
+			return false;
+		}
+
 		String category = categoryOf(weaponId);
 		return BOW.equals(category)
 			|| OGRE_BOW.equals(category)
 			|| CROSSBOW.equals(category)
 			|| BALLISTA.equals(category);
+	}
+
+	/**
+	 * Whether this weapon brings its own ammunition, so nothing in the ammo slot is needed — or
+	 * counted, since a quiver of arrows worn beside a crystal bow does nothing in game.
+	 */
+	public boolean suppliesOwnAmmo(int weaponId)
+	{
+		return SUPPLY_OWN_AMMO.contains(weaponId)
+			|| SUPPLY_OWN_AMMO.contains(ItemVariationMapping.map(weaponId));
 	}
 
 	/**
