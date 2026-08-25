@@ -152,7 +152,11 @@ function record(live) {
 }
 
 async function main() {
-  const live = await liveCommit();
+  // A rehearsal: read the announcement for a commit the hub has not been given yet, so the wording
+  // can be checked before the release rather than after it is in the channel. Dry runs only — this
+  // must never be a way to announce something that is not actually live.
+  const preview = dryRun ? process.env.PREVIEW_COMMIT : null;
+  const live = preview || await liveCommit();
   const previous = lastAnnounced();
 
   if (!previous) {
