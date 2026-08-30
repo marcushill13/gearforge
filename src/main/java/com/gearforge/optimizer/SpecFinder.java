@@ -155,7 +155,9 @@ public class SpecFinder
 
 		if (special.reducesDefence())
 		{
-			double uplift = defenceReductionValue(special, template, baseline, specScore.getHitChance());
+			double uplift = special.getDefenceDrainPerDamage() > 0
+				? drainByDamageValue(special, template, baseline, damage)
+				: defenceReductionValue(special, template, baseline, specScore.getHitChance());
 			added += uplift;
 
 			if (uplift > 0)
@@ -200,6 +202,59 @@ public class SpecFinder
 		double hitpoints = template.getTargetHitpoints();
 		double timeSaved = hitpoints / baseline.getDps() - hitpoints / after;
 		return landChance * timeSaved * baseline.getDps();
+	}
+
+	/**
+	 * What a Bandos godsword's drain is worth.
+	 * <p>
+	 * It takes Defence equal to the damage it dealt, so its value cannot be read off an average hit:
+	 * the relationship between Defence removed and time saved is not a straight line, and a spec that
+	 * misses removes nothing at all. Every outcome is therefore weighed by how likely it is, which is
+	 * the whole reason the damage is carried around as a distribution rather than a number.
+	 */
+	private double drainByDamageValue(
+		SpecialAttack special, CombatContext template, SetupScore baseline, DamageDistribution damage)
+	{
+		Target target = template.getTarget();
+		if (target == null || template.getTargetHitpoints() <= 0 || target.getDefenceLevel() <= 0)
+		{
+			return 0;
+		}
+
+		double hitpoints = template.getTargetHitpoints();
+		double perDamage = special.getDefenceDrainPerDamage();
+		double value = 0;
+
+		// Nothing drained means nothing gained, so the miss and the scratches are skipped rather than
+		// scored: a drain of zero leaves the defence exactly where it was.
+		for (int dealt = 1; dealt <= damage.maximum(); dealt++)
+		{
+			double chance = damage.probabilityOf(dealt);
+			if (chance <= 0)
+			{
+				continue;
+			}
+
+			int drained = (int) Math.floor(dealt * perDamage);
+			if (drained <= 0)
+			{
+				continue;
+			}
+
+			// Defence cannot go below zero, whatever the godsword hits for.
+			int reducedDefence = Math.max(0, target.getDefenceLevel() - drained);
+			double after = engine.score(template.toBuilder()
+				.target(target.toBuilder().defenceLevel(reducedDefence).build())
+				.build()).getDps();
+
+			if (after > baseline.getDps())
+			{
+				double timeSaved = hitpoints / baseline.getDps() - hitpoints / after;
+				value += chance * timeSaved * baseline.getDps();
+			}
+		}
+
+		return value;
 	}
 
 	/**

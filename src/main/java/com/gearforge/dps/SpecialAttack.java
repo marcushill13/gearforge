@@ -58,7 +58,8 @@ public enum SpecialAttack
 	ARMADYL_GODSWORD("Armadyl godsword", 50, Shape.SINGLE_HIT, ItemID.AGS, 2.0, 1.375),
 
 	/** Doubles accuracy, +21% damage, and drains a combat stat by what it hits for. */
-	BANDOS_GODSWORD("Bandos godsword", 50, Shape.SINGLE_HIT, ItemID.BGS, 2.0, 1.21),
+	/** Drains Defence by the damage it deals, which is the whole reason it is brought to a boss. */
+	BANDOS_GODSWORD("Bandos godsword", 50, Shape.SINGLE_HIT, ItemID.BGS, 2.0, 1.21, 0.0, 1.0),
 
 	/** Doubles accuracy, +10% damage, and heals. The healing is not scored — it is not damage. */
 	SARADOMIN_GODSWORD("Saradomin godsword", 50, Shape.SINGLE_HIT, ItemID.SGS, 2.0, 1.1),
@@ -132,7 +133,9 @@ public enum SpecialAttack
 	BRINE_SABRE("Brine sabre", 75, Shape.SINGLE_HIT, ItemID.OLAF2_BRINE_SABRE, 2.0, 1.0),
 
 	/** Doubled accuracy and +10% damage. */
-	BARRELCHEST_ANCHOR("Barrelchest anchor", 50, Shape.SINGLE_HIT, ItemID.BRAIN_ANCHOR, 2.0, 1.1),
+	/** Drains a tenth of the damage dealt, in the same fashion as the godsword. */
+	BARRELCHEST_ANCHOR("Barrelchest anchor", 50, Shape.SINGLE_HIT, ItemID.BRAIN_ANCHOR, 2.0, 1.1,
+		0.0, 0.10),
 
 	/** +25% accuracy and +25% damage. */
 	DRAGON_SWORD("Dragon sword", 40, Shape.SINGLE_HIT, ItemID.DRAGON_SHORTSWORD, 1.25, 1.25),
@@ -209,8 +212,9 @@ public enum SpecialAttack
 		ItemID.NIGHTMARE_STAFF_VOLATILE, 58),
 
 	/** Reduces the target's Defence, and hits for a third of the Magic level less six. */
+	/** Fifteen per cent of Defence and Magic, and a half again on the hit itself. */
 	ACCURSED_SCEPTRE("Accursed sceptre", 50, Shape.DEFENCE_REDUCTION,
-		ItemID.WILD_CAVE_ACCURSED_CHARGED, 1.0, 1.0, 0.30),
+		ItemID.WILD_CAVE_ACCURSED_CHARGED, 1.5, 1.5, 0.15),
 
 	/** The blazing form of the blowpipe, with the same special. */
 	BLAZING_BLOWPIPE("Blazing blowpipe", 50, Shape.SINGLE_HIT,
@@ -292,6 +296,16 @@ public enum SpecialAttack
 	private final double damageMultiplier;
 	private final double defenceReduction;
 
+	/**
+	 * Defence drained per point of damage dealt, for the specials that drain by what they hit for
+	 * rather than by a share of what the target has.
+	 * <p>
+	 * A different mechanic from {@link #defenceReduction}, not a different number: a warhammer takes
+	 * 30% of whatever Defence is there and cares nothing for its damage, while a Bandos godsword takes
+	 * exactly what it hit for and nothing at all when it misses. One cannot be expressed as the other.
+	 */
+	private double defenceDrainPerDamage;
+
 	/** Damage ceiling for a Magic special, reached at 99 Magic. Zero for everything else. */
 	private int magicLevelCap;
 
@@ -312,6 +326,16 @@ public enum SpecialAttack
 		double accuracyMultiplier, double damageMultiplier)
 	{
 		this(displayName, energyCost, shape, itemId, accuracyMultiplier, damageMultiplier, 0.0);
+	}
+
+	SpecialAttack(
+		String displayName, int energyCost, Shape shape, int itemId,
+		double accuracyMultiplier, double damageMultiplier, double defenceReduction,
+		double defenceDrainPerDamage)
+	{
+		this(displayName, energyCost, shape, itemId, accuracyMultiplier, damageMultiplier,
+			defenceReduction);
+		this.defenceDrainPerDamage = defenceDrainPerDamage;
 	}
 
 	SpecialAttack(
@@ -371,7 +395,16 @@ public enum SpecialAttack
 
 	public boolean reducesDefence()
 	{
-		return shape == Shape.DEFENCE_REDUCTION;
+		return shape == Shape.DEFENCE_REDUCTION || defenceDrainPerDamage > 0;
+	}
+
+	/**
+	 * Defence taken off per point of damage dealt; zero for a special that drains by percentage or not
+	 * at all.
+	 */
+	public double getDefenceDrainPerDamage()
+	{
+		return defenceDrainPerDamage;
 	}
 
 	/**
@@ -422,6 +455,17 @@ public enum SpecialAttack
 				return energyCost + "% energy · -"
 					+ Math.round(defenceReduction * 100) + "% defence";
 			default:
+				if (defenceDrainPerDamage >= 1)
+				{
+					return energyCost + "% energy · drains defence by the damage dealt";
+				}
+
+				if (defenceDrainPerDamage > 0)
+				{
+					return energyCost + "% energy · drains defence by "
+						+ Math.round(defenceDrainPerDamage * 100) + "% of the damage dealt";
+				}
+
 				return energyCost + "% energy";
 		}
 	}

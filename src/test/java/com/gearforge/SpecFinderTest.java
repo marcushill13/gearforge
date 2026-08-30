@@ -113,6 +113,54 @@ public class SpecFinderTest
 		assertEquals(SpecialAttack.DRAGON_SCIMITAR, suggestions.get(0).getSpecial());
 	}
 
+	/**
+	 * A Bandos godsword drains Defence by exactly the damage it dealt. That was not modelled at all —
+	 * it was scored as a plain damage spec — so on a long fight it was worth only what it hit for,
+	 * and the reason people actually bring it counted for nothing.
+	 */
+	@Test
+	public void theGodswordDrainIsWorthSomethingOnALongFight()
+	{
+		GearItem bgs = weapon(ItemID.BGS, "Bandos godsword", 132, 132, 6);
+
+		double onLongFight = valueOf(find(armoured(), 50, 3000, bgs), SpecialAttack.BANDOS_GODSWORD);
+		double onShortFight = valueOf(find(armoured(), 50, 40, bgs), SpecialAttack.BANDOS_GODSWORD);
+
+		assertTrue("The drain has to be worth something over a long kill", onLongFight > onShortFight);
+	}
+
+	/**
+	 * The two drains are different mechanics, not different numbers. A warhammer takes a share of
+	 * whatever Defence is there whether it hits hard or not; a godsword takes what it hit for and
+	 * nothing when it misses.
+	 */
+	@Test
+	public void aDrainByDamageIsNotADrainByPercentage()
+	{
+		assertTrue(SpecialAttack.BANDOS_GODSWORD.reducesDefence());
+		assertEquals(1.0, SpecialAttack.BANDOS_GODSWORD.getDefenceDrainPerDamage(), 1e-9);
+		assertEquals(0.0, SpecialAttack.BANDOS_GODSWORD.defenceReductionAgainst(false), 1e-9);
+
+		assertTrue(SpecialAttack.DRAGON_WARHAMMER.reducesDefence());
+		assertEquals(0.0, SpecialAttack.DRAGON_WARHAMMER.getDefenceDrainPerDamage(), 1e-9);
+		assertEquals(0.30, SpecialAttack.DRAGON_WARHAMMER.defenceReductionAgainst(false), 1e-9);
+
+		// A tenth of the damage, in the same fashion as the godsword.
+		assertEquals(0.10, SpecialAttack.BARRELCHEST_ANCHOR.getDefenceDrainPerDamage(), 1e-9);
+	}
+
+	/**
+	 * Condemn drains fifteen per cent, not thirty, and raises the hit by half — both of which were
+	 * wrong in opposite directions.
+	 */
+	@Test
+	public void theAccursedSceptreDrainsFifteenPercent()
+	{
+		assertEquals(0.15, SpecialAttack.ACCURSED_SCEPTRE.defenceReductionAgainst(false), 1e-9);
+		assertEquals(1.5, SpecialAttack.ACCURSED_SCEPTRE.getAccuracyMultiplier(), 1e-9);
+		assertEquals(1.5, SpecialAttack.ACCURSED_SCEPTRE.getDamageMultiplier(), 1e-9);
+	}
+
 	private List<SpecSuggestion> find(Target target, GearItem... specWeapons)
 	{
 		return find(target, 0, specWeapons);
